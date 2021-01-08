@@ -124,6 +124,16 @@ venv.bak/
 # mypy
 .mypy_cache/
 .dmypy.json
+
+# Result folders
+/test_results
+/train_results
+
+# Checkpoints
+/ckpt
+
+# Datasets
+/data
 dmypy.json
 
 # Pyre type checker
