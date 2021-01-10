@@ -42,7 +42,6 @@ def train(model, train_loader, optimizer, args):
     """
     model.train()
     train_loss = 0
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
     for batch_idx, (data, _) in enumerate(train_loader):
         data = data.to(device)
@@ -89,9 +88,9 @@ def save_checkpoint(state, is_best, outdir):
     """
     Function for saving pytorch model checkpoints.
     Inputs:
-        state - 
-        is_best - VAE model to train
-        outdir - Data Loader for the dataset you want to train on
+        state - state of the model containing current epoch, model, optimizer and loss
+        is_best - boolean stating if model has best test loss so far
+        outdir - directory to save checkpoints
     """
     if not os.path.exists(outdir):
         os.makedirs(outdir)
