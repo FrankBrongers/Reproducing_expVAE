@@ -22,7 +22,6 @@ class Unflatten(nn.Module):
 
 
 class ConvVAE(nn.Module):
-
     def __init__(self, latent_size):
         super(ConvVAE, self).__init__()
 

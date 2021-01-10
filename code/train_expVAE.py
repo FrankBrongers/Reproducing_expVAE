@@ -9,7 +9,9 @@ import os
 import shutil
 import numpy as np
 
-from model import ConvVAE
+from models.vanilla import ConvVAE
+# from models.resnet18 import ...
+
 import OneClassMnist
 cuda = torch.cuda.is_available()
 if cuda:
@@ -69,15 +71,15 @@ def test(epoch, model, test_loader, args):
 def save_checkpoint(state, is_best, outdir):
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-    checkpoint_file = os.path.join(outdir, 'checkpoint.pth')
-    best_file = os.path.join(outdir, 'model_best.pth')
+    checkpoint_file = os.path.join(outdir, f"{state['model']}_checkpoint.pth")
+    best_file = os.path.join(outdir, f"{state['model']}_best.pth")
     torch.save(state, checkpoint_file)
     if is_best:
         shutil.copyfile(checkpoint_file, best_file)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Explainable VAE MNIST Example')
+    parser = argparse.ArgumentParser(description='Explainable VAE')
     parser.add_argument('--result_dir', type=str, default='train_results', metavar='DIR',
                         help='output directory')
     parser.add_argument('--ckpt_dir', type=str, default='ckpt', metavar='DIR',
@@ -92,10 +94,13 @@ def main():
                         help='path to latest checkpoint (default: None')
 
     # model options
+    parser.add_argument('--model', type=str, default='vanilla',
+                        help='select one of the following models: vanilla, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
     parser.add_argument('--one_class', type=int, default=3, metavar='N',
                         help='inlier digit for one-class VAE training')
+    
 
     args = parser.parse_args()
 
@@ -114,7 +119,12 @@ def main():
         one_mnist_test_dataset,
         batch_size=args.batch_size, shuffle=True, **kwargs)
 
-    model = ConvVAE(args.latent_size).to(device)
+    # Select a model architecture
+    if args.model == 'vanilla':
+        model = ConvVAE(args.latent_size).to(device)
+    elif args.model == 'resnet18':
+        model = TODO
+
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     start_epoch = 0
@@ -146,6 +156,7 @@ def main():
             'best_test_loss': best_test_loss,
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
+            'model' : args.model,
         }, is_best, os.path.join('./',args.ckpt_dir))
 
         # Visualize sample validation result

@@ -5,7 +5,9 @@ from torchvision import datasets, transforms
 import os
 import numpy as np
 
-from model import ConvVAE
+from models.vanilla import ConvVAE
+# from models.resnet18 import ...
+
 import OneClassMnist
 from gradcam import GradCAM
 import cv2
@@ -33,7 +35,7 @@ def save_cam(image, filename, gcam):
     cv2.imwrite(filename, gcam)
 
 def main():
-    parser = argparse.ArgumentParser(description='Explainable VAE MNIST Example')
+    parser = argparse.ArgumentParser(description='Explainable VAE')
     parser.add_argument('--result_dir', type=str, default='test_results', metavar='DIR',
                         help='output directory')
     parser.add_argument('--batch_size', type=int, default=128, metavar='N',
@@ -41,10 +43,12 @@ def main():
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
 
-    # model options
+    # model option
+    parser.add_argument('--model', type=str, default='vanilla',
+                        help='select one of the following models: vanilla, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
-    parser.add_argument('--model_path', type=str, default='./ckpt/model_best.pth', metavar='DIR',
+    parser.add_argument('--model_path', type=str, default='./ckpt/vanilla_best.pth', metavar='DIR',
                         help='pretrained model directory')
     parser.add_argument('--one_class', type=int, default=8, metavar='N',
                         help='inlier digit for one-class VAE training')
@@ -62,7 +66,12 @@ def main():
         one_mnist_test_dataset,
         batch_size=args.batch_size, shuffle=False, **kwargs)
 
-    model = ConvVAE(args.latent_size).to(device)
+    # Select a model architecture
+    if args.model == 'vanilla':
+        model = ConvVAE(args.latent_size).to(device)
+    elif args.model == 'resnet18':
+        model = TODO
+
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
     mu_avg, logvar_avg = 0, 1
