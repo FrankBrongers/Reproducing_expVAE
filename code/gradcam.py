@@ -15,7 +15,10 @@ class PropBase(object):
 
     def __init__(self, model, target_layer, cuda=True):
         self.model = model
-        self.device = cuda
+        if cuda:
+            self.device = 'cuda'
+        else:
+            self.device = 'cpu'
         self.model.to(self.device)
         self.model.eval()
         self.target_layer = target_layer
