@@ -59,6 +59,9 @@ class PropBase(object):
         flag = 2
         if flag == 1:
             print('Flag is 1 (somehow?)')
+            # There is a ReLu here (which we miss in the generate function), but
+            # this part of the code is never called. Also, where do mu and 
+            # one_hot come from?
             self.score_fc = torch.sum(F.relu(one_hot * mu))
         else:
             self.score_fc = torch.sum(one_hot)
@@ -137,9 +140,19 @@ class GradCAM(PropBase):
         self.weights.volatile = False
         self.activiation = self.activiation[None, :, :, :, :]
         self.weights = self.weights[:, None, :, :, :]
-        gcam = F.conv3d(self.activiation, (self.weights.to(self.device)), padding=0, groups=len(self.weights))
+
+        # Compute M_i (I think? Where is the ReLu? 
+        # Why do they use cross corelation/convolution?)
+        gcam = F.conv3d(input=self.activiation, 
+                        weight=self.weights.to(self.device), padding=0, 
+                        groups=len(self.weights))
         gcam = gcam.squeeze(dim=0)
-        gcam = F.upsample(gcam, (self.image_size, self.image_size), mode="bilinear")
+        # Bilinear upsampling multiplies the height and width of the input 
+        # with a scale factor, here the image size.
+        # Is this in the paper somewhere?
+        gcam = F.upsample(gcam, (self.image_size, self.image_size), 
+                                mode="bilinear")
+        # Absolute also not found in paper.
         gcam = torch.abs(gcam)
 
         return gcam
