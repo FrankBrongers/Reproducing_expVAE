@@ -23,7 +23,7 @@ def loss_function(recon_x, x, mu, logvar):
         x - Batch of original input images of shape [B,C,H,W].
         mu - Mean of the posterior distributions.
         log_var - Log standard deviation of the posterior distributions.
-    """    
+    """
     BCE = F.binary_cross_entropy(recon_x.view(-1, 784), x.view(-1, 784), reduction='sum')
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
@@ -61,7 +61,7 @@ def train(model, train_loader, optimizer, args):
 
 def test(model, test_loader, args):
     """
-    Function for testing the model on a test dataset. Test for one epoch. 
+    Function for testing the model on a test dataset. Test for one epoch.
     Inputs:
         model - VAE model to train
         test_loader - Data Loader for the dataset you want to test on
@@ -107,6 +107,7 @@ def main(args):
     Inputs:
         args - Namespace object from the argument parser
     """
+    print("device is", device)
 
     # Seed everything
     torch.manual_seed(args.seed)
@@ -134,7 +135,7 @@ def main(args):
 
 
     # Create optimizer
-    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
 
 
     start_epoch = 0
@@ -157,7 +158,7 @@ def main(args):
     # Training and testing
     for epoch in range(start_epoch, args.epochs):
         train_loss = train(model, train_loader, optimizer, args)
-        test_loss = test(model, test_loader,args) 
+        test_loss = test(model, test_loader,args)
 
         print('Epoch [%d/%d] loss: %.3f val_loss: %.3f' % (epoch + 1, args.epochs, train_loss, test_loss))
 
@@ -216,7 +217,7 @@ if __name__ == '__main__':
                         help='latent vector size of encoder')
     parser.add_argument('--one_class', type=int, default=3, metavar='N',
                         help='inlier digit for one-class VAE training')
-    
+
 
     args = parser.parse_args()
 
