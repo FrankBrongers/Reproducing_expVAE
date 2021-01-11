@@ -6,7 +6,7 @@ import os
 import numpy as np
 
 from models.vanilla import ConvVAE
-# from models.resnet18 import ...
+from models.resnet18 import ResNet18VAE
 
 import OneClassMnist
 from gradcam import GradCAM
@@ -38,7 +38,7 @@ def main():
     parser = argparse.ArgumentParser(description='Explainable VAE')
     parser.add_argument('--result_dir', type=str, default='test_results', metavar='DIR',
                         help='output directory')
-    parser.add_argument('--batch_size', type=int, default=128, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=4, metavar='N',
                         help='input batch size for training (default: 128)')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
@@ -69,13 +69,16 @@ def main():
     # Select a model architecture
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
+        target_layer = 'encoder.2'
     elif args.model == 'resnet18':
-        model = TODO
+        model = ResNet18VAE(args.latent_size).to(device)
+        # TODO Understand why to choose a specific target layer
+        target_layer = 'encoder.layer4.1.conv2'
 
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
     mu_avg, logvar_avg = 0, 1
-    gcam = GradCAM(model, target_layer='encoder.2', cuda=True) 
+    gcam = GradCAM(model, target_layer=target_layer, cuda=True) 
     test_index=0
     for batch_idx, (x, _) in enumerate(test_loader):
         model.eval()

@@ -10,7 +10,7 @@ import shutil
 import numpy as np
 
 from models.vanilla import ConvVAE
-# from models.resnet18 import ...
+from models.resnet18 import ResNet18VAE
 
 import OneClassMnist
 cuda = torch.cuda.is_available()
@@ -21,8 +21,11 @@ device = torch.device("cuda" if cuda else "cpu")
 
 
 def loss_function(recon_x, x, mu, logvar):
+    # get batchsize
+    B = recon_x.shape[0]
+
     # reconstruction loss
-    BCE = F.binary_cross_entropy(recon_x.view(-1, 784), x.view(-1, 784), reduction='sum')
+    BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum')
 
     # KL divergence loss
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
@@ -84,7 +87,7 @@ def main():
                         help='output directory')
     parser.add_argument('--ckpt_dir', type=str, default='ckpt', metavar='DIR',
                         help='ckpt directory')
-    parser.add_argument('--batch_size', type=int, default=128, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=16, metavar='N',
                         help='input batch size for training (default: 128)')
     parser.add_argument('--epochs', type=int, default=100, metavar='N',
                         help='number of epochs to train (default: 10)')
@@ -94,7 +97,7 @@ def main():
                         help='path to latest checkpoint (default: None')
 
     # model options
-    parser.add_argument('--model', type=str, default='vanilla',
+    parser.add_argument('--model', type=str, default='resnet18',
                         help='select one of the following models: vanilla, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
@@ -123,7 +126,7 @@ def main():
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
     elif args.model == 'resnet18':
-        model = TODO
+        model = ResNet18VAE(args.latent_size).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
