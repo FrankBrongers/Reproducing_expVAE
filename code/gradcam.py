@@ -90,7 +90,7 @@ class GradCAM(PropBase):
             self.outputs_backward[id(module)] = grad_out[0].cpu()
 
         def func_f(module, input, f_output):
-            """
+            """https://meet.google.com/hsp-daph-wjc
             Hook call function that stores the forward pass output for every
             network module in a dictionary.
             """
