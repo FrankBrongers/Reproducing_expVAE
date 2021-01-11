@@ -15,7 +15,10 @@ class PropBase(object):
 
     def __init__(self, model, target_layer, cuda=True):
         self.model = model
-        self.device = cuda
+        if cuda:
+            self.device = 'cuda'
+        else:
+            self.device = 'cpu'
         self.model.to(self.device)
         self.model.eval()
         self.target_layer = target_layer
@@ -59,6 +62,9 @@ class PropBase(object):
         flag = 2
         if flag == 1:
             print('Flag is 1 (somehow?)')
+            # There is a ReLu here (which we miss in the generate function), but
+            # this part of the code is never called. Also, where do mu and
+            # one_hot come from?
             self.score_fc = torch.sum(F.relu(one_hot * mu))
         else:
             self.score_fc = torch.sum(one_hot)
@@ -138,11 +144,17 @@ class GradCAM(PropBase):
 
             self.activiation = self.activiation[None, :, :, :, :]
             self.weights = self.weights[:, None, :, :, :]
-            # turn it into a heatman?
-            gcam = F.conv3d(self.activiation, (self.weights.to(self.device)), padding=0, groups=len(self.weights))
+
+            # turn it into a heatmap?
+            # Compute M_i (I think? Where is the ReLu?
+            # Why do they use cross corelation/convolution?)
+            gcam = F.conv3d(input=self.activiation,
+                            weight=self.weights.to(self.device), padding=0,
+                            groups=len(self.weights))
             gcam = gcam.squeeze(dim=0)
             # upsamples through interpolation increases image size
-            gcam = F.interpolate(gcam, (self.image_size, self.image_size), mode="bilinear", align_corners=True)
+            gcam = F.interpolate(gcam, (self.image_size, self.image_size),
+                                    mode="bilinear", align_corners=True)
         gcam = torch.abs(gcam)
 
         return gcam

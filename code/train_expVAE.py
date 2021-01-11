@@ -10,7 +10,7 @@ import shutil
 import numpy as np
 
 from models.vanilla import ConvVAE
-# from models.resnet18 import ...
+from models.resnet18 import ResNet18VAE
 
 import OneClassMnist
 
@@ -24,7 +24,12 @@ def loss_function(recon_x, x, mu, logvar):
         mu - Mean of the posterior distributions.
         log_var - Log standard deviation of the posterior distributions.
     """
-    BCE = F.binary_cross_entropy(recon_x.view(-1, 784), x.view(-1, 784), reduction='sum')
+    # get batchsize
+    B = recon_x.shape[0]
+
+    # reconstruction loss
+    BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum')
+
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
     return BCE + KLD
@@ -131,7 +136,7 @@ def main(args):
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
     elif args.model == 'resnet18':
-        model = TODO
+        model = ResNet18VAE(args.latent_size).to(device)
 
 
     # Create optimizer
@@ -182,7 +187,6 @@ def main(args):
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
             save_image(sample.view(64, 1, 28, 28), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
-
 
 if __name__ == '__main__':
 

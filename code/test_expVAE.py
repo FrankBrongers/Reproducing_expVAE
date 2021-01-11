@@ -6,7 +6,7 @@ import os
 import numpy as np
 
 from models.vanilla import ConvVAE
-# from models.resnet18 import ...
+from models.resnet18 import ResNet18VAE
 
 import OneClassMnist
 from gradcam import GradCAM
@@ -56,15 +56,18 @@ def main(args):
     # Select a model architecture
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
+        target_layer = 'encoder.2'
     elif args.model == 'resnet18':
-        model = TODO
+        model = ResNet18VAE(args.latent_size).to(device)
+        # TODO Understand why to choose a specific target layer
+        target_layer = 'encoder.layer4.1.conv2'
 
 
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
     mu_avg, logvar_avg = 0, 1
-    gcam = GradCAM(model, target_layer='encoder.2', cuda = device ) 
+    gcam = GradCAM(model, target_layer=target_layer, cuda=True) 
     test_index=0
 
 
