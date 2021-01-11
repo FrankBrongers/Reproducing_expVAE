@@ -13,27 +13,38 @@ from models.vanilla import ConvVAE
 from models.resnet18 import ResNet18VAE
 
 import OneClassMnist
-cuda = torch.cuda.is_available()
-if cuda:
-    print('cuda available')
-
-device = torch.device("cuda" if cuda else "cpu")
 
 
 def loss_function(recon_x, x, mu, logvar):
+    """
+    Calculates the reconstruction (binary cross entropy) and regularization (KLD) losses to form the total loss of the VAE.
+    Inputs:
+        recon_x - Batch of reconstructed images of shape [B,C,H,W].
+        x - Batch of original input images of shape [B,C,H,W].
+        mu - Mean of the posterior distributions.
+        log_var - Log standard deviation of the posterior distributions.
+    """
     # get batchsize
     B = recon_x.shape[0]
 
     # reconstruction loss
     BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum')
 
-    # KL divergence loss
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
     return BCE + KLD
 
-### Training #####
-def train(epoch, model, train_loader, optimizer, args):
+
+def train(model, train_loader, optimizer, args):
+    """
+    Function for training a model on a dataset. Train for one epoch.
+    Inputs:
+        model - VAE model to train
+        train_loader - Data Loader for the dataset you want to train on
+        optimizer - The optimizer used to update the parameters
+    Outputs:
+        train_loss - Averaged total loss
+    """
     model.train()
     train_loss = 0
 
@@ -53,8 +64,15 @@ def train(epoch, model, train_loader, optimizer, args):
 
     return train_loss
 
-### Validating ####
-def test(epoch, model, test_loader, args):
+def test(model, test_loader, args):
+    """
+    Function for testing the model on a test dataset. Test for one epoch.
+    Inputs:
+        model - VAE model to train
+        test_loader - Data Loader for the dataset you want to test on
+    Outputs:
+        test_loss - Averaged total loss on test set
+    """
     model.eval()
     test_loss = 0
 
@@ -72,6 +90,13 @@ def test(epoch, model, test_loader, args):
 
 
 def save_checkpoint(state, is_best, outdir):
+    """
+    Function for saving pytorch model checkpoints.
+    Inputs:
+        state - state of the model containing current epoch, model, optimizer and loss
+        is_best - boolean stating if model has best test loss so far
+        outdir - directory to save checkpoints
+    """
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     checkpoint_file = os.path.join(outdir, f"{state['model']}_checkpoint.pth")
@@ -81,39 +106,23 @@ def save_checkpoint(state, is_best, outdir):
         shutil.copyfile(checkpoint_file, best_file)
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Explainable VAE')
-    parser.add_argument('--result_dir', type=str, default='train_results', metavar='DIR',
-                        help='output directory')
-    parser.add_argument('--ckpt_dir', type=str, default='ckpt', metavar='DIR',
-                        help='ckpt directory')
-    parser.add_argument('--batch_size', type=int, default=16, metavar='N',
-                        help='input batch size for training (default: 128)')
-    parser.add_argument('--epochs', type=int, default=100, metavar='N',
-                        help='number of epochs to train (default: 10)')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-                        help='random seed (default: 1)')
-    parser.add_argument('--resume', default=False, type=str, metavar='PATH',
-                        help='path to latest checkpoint (default: None')
+def main(args):
+    """
+    Main Function for the full training & evaluation loop of the VAE model.
+    Inputs:
+        args - Namespace object from the argument parser
+    """
+    print("device is", device)
 
-    # model options
-    parser.add_argument('--model', type=str, default='resnet18',
-                        help='select one of the following models: vanilla, resnet18')
-    parser.add_argument('--latent_size', type=int, default=32, metavar='N',
-                        help='latent vector size of encoder')
-    parser.add_argument('--one_class', type=int, default=3, metavar='N',
-                        help='inlier digit for one-class VAE training')
-    
-
-    args = parser.parse_args()
-
+    # Seed everything
     torch.manual_seed(args.seed)
 
-    kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
 
+    # Load datasets
     one_class = args.one_class # Choose the inlier digit to be 3
     one_mnist_train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
     one_mnist_test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
+    kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
 
     train_loader = torch.utils.data.DataLoader(
         one_mnist_train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
@@ -122,18 +131,22 @@ def main():
         one_mnist_test_dataset,
         batch_size=args.batch_size, shuffle=True, **kwargs)
 
+
     # Select a model architecture
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+    # Create optimizer
+    optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
+
 
     start_epoch = 0
     best_test_loss = np.finfo('f').max
 
-    # optionally resume from a checkpoint
+    # Optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
             print('=> loading checkpoint %s' % args.resume)
@@ -146,12 +159,15 @@ def main():
         else:
             print('=> no checkpoint found at %s' % args.resume)
 
+
+    # Training and testing
     for epoch in range(start_epoch, args.epochs):
-        train_loss = train(epoch, model, train_loader, optimizer, args)
-        test_loss = test(epoch, model, test_loader,args) 
+        train_loss = train(model, train_loader, optimizer, args)
+        test_loss = test(model, test_loader,args)
 
         print('Epoch [%d/%d] loss: %.3f val_loss: %.3f' % (epoch + 1, args.epochs, train_loss, test_loss))
 
+        # Check if model is good enough for checkpoint to be created
         is_best = test_loss < best_test_loss
         best_test_loss = min(test_loss, best_test_loss)
         save_checkpoint({
@@ -172,6 +188,41 @@ def main():
                 os.makedirs(save_dir)
             save_image(sample.view(64, 1, 28, 28), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
 
-
 if __name__ == '__main__':
-    main()
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    parser = argparse.ArgumentParser(description='Explainable VAE')
+
+    # Path options
+    parser.add_argument('--result_dir', type=str, default='train_results', metavar='DIR',
+                        help='output directory')
+    parser.add_argument('--ckpt_dir', type=str, default='ckpt', metavar='DIR',
+                        help='ckpt directory')
+    parser.add_argument('--resume', default=False, type=str, metavar='PATH',
+                        help='path to latest checkpoint (default: None')
+
+    # Training parameters
+    parser.add_argument('--batch_size', type=int, default=128, metavar='N',
+                        help='input batch size for training (default: 128)')
+    parser.add_argument('--learning_rate', default=1e-3, type=float,
+                        help='Learning rate to use')
+    parser.add_argument('--epochs', type=int, default=100, metavar='N',
+                        help='number of epochs to train (default: 10)')
+    parser.add_argument('--seed', type=int, default=1, metavar='S',
+                        help='random seed (default: 1)')
+    parser.add_argument('--num_workers', default=4, type=int,
+                        help='Number of workers to use in the data loaders.')
+
+
+    # Model parameters
+    parser.add_argument('--model', type=str, default='vanilla',
+                        help='select one of the following models: vanilla, resnet18')
+    parser.add_argument('--latent_size', type=int, default=32, metavar='N',
+                        help='latent vector size of encoder')
+    parser.add_argument('--one_class', type=int, default=3, metavar='N',
+                        help='inlier digit for one-class VAE training')
+
+
+    args = parser.parse_args()
+
+    main(args)

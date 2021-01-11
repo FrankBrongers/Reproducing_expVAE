@@ -126,14 +126,14 @@ venv.bak/
 .dmypy.json
 
 # Result folders
-/test_results
-/train_results
+test_results/
+train_results/
 
 # Checkpoints
-/ckpt
+ckpt/
 
 # Datasets
-/data
+data/
 dmypy.json
 
 # Pyre type checker
