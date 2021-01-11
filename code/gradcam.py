@@ -55,7 +55,7 @@ class PropBase(object):
 
         one_hot = one_hot.to(self.device)
 
-        # TODO:  remove flags
+        # TODO:  remove flags after fining difference
         flag = 2
         if flag == 1:
             print('Flag is 1 (somehow?)')
@@ -124,22 +124,25 @@ class GradCAM(PropBase):
         """
         Generates attention map from gradients.
         """
-        # Retrieve gradients of backward pass for target layer
-        self.grads = self.get_conv_outputs(
-            self.outputs_backward, self.target_layer)
-        # compute weigths based on the gradient
-        self.compute_gradient_weights()
+        with torch.no_grad():
+            # Retrieve gradients of backward pass for target layer
+            self.grads = self.get_conv_outputs(
+                self.outputs_backward, self.target_layer)
+            # compute weigths based on the gradient
+            self.compute_gradient_weights()
 
-        # Retrieve output of forward pass for target layer and set as activation
-        self.activiation = self.get_conv_outputs(
-            self.outputs_forward, self.target_layer)
+            # Retrieve output of forward pass for target layer and set as activation
+            self.activiation = self.get_conv_outputs(
+                self.outputs_forward, self.target_layer)
 
-        self.weights.volatile = False
-        self.activiation = self.activiation[None, :, :, :, :]
-        self.weights = self.weights[:, None, :, :, :]
-        gcam = F.conv3d(self.activiation, (self.weights.to(self.device)), padding=0, groups=len(self.weights))
-        gcam = gcam.squeeze(dim=0)
-        gcam = F.upsample(gcam, (self.image_size, self.image_size), mode="bilinear")
+
+            self.activiation = self.activiation[None, :, :, :, :]
+            self.weights = self.weights[:, None, :, :, :]
+            # turn it into a heatman?
+            gcam = F.conv3d(self.activiation, (self.weights.to(self.device)), padding=0, groups=len(self.weights))
+            gcam = gcam.squeeze(dim=0)
+            # upsamples through interpolation increases image size
+            gcam = F.interpolate(gcam, (self.image_size, self.image_size), mode="bilinear", align_corners=True)
         gcam = torch.abs(gcam)
 
         return gcam
