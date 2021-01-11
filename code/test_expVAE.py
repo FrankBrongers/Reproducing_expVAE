@@ -67,7 +67,7 @@ def main(args):
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
     mu_avg, logvar_avg = 0, 1
-    gcam = GradCAM(model, target_layer=target_layer, cuda=True) 
+    gcam = GradCAM(model, target_layer=target_layer, device= device)
     test_index=0
 
 

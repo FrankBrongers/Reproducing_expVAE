@@ -13,12 +13,9 @@ import os
 
 class PropBase(object):
 
-    def __init__(self, model, target_layer, cuda=True):
+    def __init__(self, model, target_layer, device):
         self.model = model
-        if cuda:
-            self.device = 'cuda'
-        else:
-            self.device = 'cpu'
+        self.device = device
         self.model.to(self.device)
         self.model.eval()
         self.target_layer = target_layer
@@ -130,31 +127,30 @@ class GradCAM(PropBase):
         """
         Generates attention map from gradients.
         """
-        with torch.no_grad():
-            # Retrieve gradients of backward pass for target layer
-            self.grads = self.get_conv_outputs(
-                self.outputs_backward, self.target_layer)
-            # compute weigths based on the gradient
-            self.compute_gradient_weights()
+        # Retrieve gradients of backward pass for target layer
+        self.grads = self.get_conv_outputs(
+            self.outputs_backward, self.target_layer)
+        # compute weigths based on the gradient
+        self.compute_gradient_weights()
 
-            # Retrieve output of forward pass for target layer and set as activation
-            self.activiation = self.get_conv_outputs(
-                self.outputs_forward, self.target_layer)
+        # Retrieve output of forward pass for target layer and set as activation
+        self.activiation = self.get_conv_outputs(
+            self.outputs_forward, self.target_layer)
 
 
-            self.activiation = self.activiation[None, :, :, :, :]
-            self.weights = self.weights[:, None, :, :, :]
+        self.activiation = self.activiation[None, :, :, :, :]
+        self.weights = self.weights[:, None, :, :, :]
 
-            # turn it into a heatmap?
-            # Compute M_i (I think? Where is the ReLu?
-            # Why do they use cross corelation/convolution?)
-            gcam = F.conv3d(input=self.activiation,
-                            weight=self.weights.to(self.device), padding=0,
-                            groups=len(self.weights))
-            gcam = gcam.squeeze(dim=0)
-            # upsamples through interpolation increases image size
-            gcam = F.interpolate(gcam, (self.image_size, self.image_size),
-                                    mode="bilinear", align_corners=True)
+        # turn it into a heatmap?
+        # Compute M_i (I think? Where is the ReLu?
+        # Why do they use cross corelation/convolution?)
+        gcam = F.conv3d(input=self.activiation,
+                        weight=self.weights.to(self.device), padding=0,
+                        groups=len(self.weights))
+        gcam = gcam.squeeze(dim=0)
+        # upsamples through interpolation increases image size
+        gcam = F.interpolate(gcam, (self.image_size, self.image_size),
+                                mode="bilinear", align_corners=True)
         gcam = torch.abs(gcam)
 
         return gcam
