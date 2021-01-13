@@ -74,6 +74,9 @@ class PropBase(object):
             outputs - Dictionary to retrieve values from (forward or backward)
             target_layer - Specific module for which to retrieve values
         """
+
+        # returns the gradient/f_out specified in outputs.
+        # Then returns it when it is the target layer
         for key, value in outputs.items():
             for module in self.model.named_modules():
                 if id(module[1]) == key:
@@ -102,6 +105,7 @@ class GradCAM(PropBase):
         # Loop over all layers in the network and store outputs of forward
         # and backward passes
         for module in self.model.named_modules():
+            # index 1 probably because activation function, not weights.
             module[1].register_backward_hook(func_b)
             module[1].register_forward_hook(func_f)
 
@@ -118,6 +122,7 @@ class GradCAM(PropBase):
         Applies the GAP operation to the gradients to obtain weights alpha.
         """
         self.grads = self.normalize(self.grads.squeeze())
+
         # Get height and width of attention maps
         self.map_size = self.grads.size()[2:]
         self.weights = nn.AvgPool2d(self.map_size)(self.grads)
@@ -141,7 +146,6 @@ class GradCAM(PropBase):
         self.activiation = self.activiation[None, :, :, :, :]
         self.weights = self.weights[:, None, :, :, :]
 
-        # turn it into a heatmap?
         # Compute M_i (I think? Where is the ReLu?
         # Why do they use cross corelation/convolution?)
         gcam = F.conv3d(input=self.activiation,
