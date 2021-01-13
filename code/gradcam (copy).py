@@ -36,10 +36,10 @@ class PropBase(object):
     # TODO: change this function and ask Lezi what she was thinking here
     # set the target class as one others as zero. use this vector for back prop added by Lezi
 
-    # def encode_one_hot_batch(self, z, mu, logvar, mu_avg, logvar_avg):
-    #     one_hot_batch = torch.FloatTensor(z.size()).zero_()
-    #     # They return mu here. Probably one_hot_batch is not implemented yet.
-    #     return mu
+    def encode_one_hot_batch(self, z, mu, logvar, mu_avg, logvar_avg):
+        one_hot_batch = torch.FloatTensor(z.size()).zero_()
+        # They return mu here. Probably one_hot_batch is not implemented yet.
+        return mu
 
     def forward(self, x):
         self.preds = self.model(x)
@@ -50,11 +50,21 @@ class PropBase(object):
     # back prop the one_hot signal
     def backward(self, mu, logvar, mu_avg, logvar_avg):
         self.model.zero_grad()
-        # z = self.model.reparameterize_eval(mu, logvar).to(self.device)
-        # one_hot = self.encode_one_hot_batch(z, mu, logvar, mu_avg, logvar_avg)
+        z = self.model.reparameterize_eval(mu, logvar).to(self.device)
+        one_hot = self.encode_one_hot_batch(z, mu, logvar, mu_avg, logvar_avg)
 
-        mu = mu.to(self.device)
-        self.score_fc = torch.sum(mu)
+        one_hot = one_hot.to(self.device)
+
+        # TODO:  remove flags after fining difference
+        flag = 2
+        if flag == 1:
+            print('Flag is 1 (somehow?)')
+            # There is a ReLu here (which we miss in the generate function), but
+            # this part of the code is never called. Also, where do mu and
+            # one_hot come from?
+            self.score_fc = torch.sum(F.relu(one_hot * mu))
+        else:
+            self.score_fc = torch.sum(one_hot)
         self.score_fc.backward(retain_graph=True)
 
     def get_conv_outputs(self, outputs, target_layer):
