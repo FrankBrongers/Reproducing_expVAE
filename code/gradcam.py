@@ -96,7 +96,7 @@ class GradCAM(PropBase):
             self.outputs_backward[id(module)] = grad_out[0].cpu()
 
         def func_f(module, input, f_output):
-            """https://meet.google.com/hsp-daph-wjc
+            """
             Hook call function that stores the forward pass output for every
             network module in a dictionary.
             """
@@ -139,16 +139,16 @@ class GradCAM(PropBase):
         self.compute_gradient_weights()
 
         # Retrieve output of forward pass for target layer and set as activation
-        self.activiation = self.get_conv_outputs(
+        self.activation = self.get_conv_outputs(
             self.outputs_forward, self.target_layer)
 
 
-        self.activiation = self.activiation[None, :, :, :, :]
+        self.activation = self.activation[None, :, :, :, :]
         self.weights = self.weights[:, None, :, :, :]
 
         # Compute M_i (I think? Where is the ReLu?
         # Why do they use cross corelation/convolution?)
-        gcam = F.conv3d(input=self.activiation,
+        gcam = F.conv3d(input=self.activation,
                         weight=self.weights.to(self.device), padding=0,
                         groups=len(self.weights))
         gcam = gcam.squeeze(dim=0)
