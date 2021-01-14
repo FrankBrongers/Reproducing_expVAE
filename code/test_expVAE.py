@@ -66,6 +66,7 @@ def main(args):
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
+    print("model iss", model)
     mu_avg, logvar_avg = 0, 1
     gcam = GradCAM(model, target_layer=target_layer, device= device)
     test_index=0
@@ -102,6 +103,7 @@ def main(args):
 if __name__ == '__main__':
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print("using device", device)
 
     parser = argparse.ArgumentParser(description='Explainable VAE')
     parser.add_argument('--result_dir', type=str, default='test_results', metavar='DIR',

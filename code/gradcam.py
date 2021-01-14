@@ -37,8 +37,6 @@ class PropBase(object):
     # back prop the one_hot signal
     def backward(self, mu, logvar, mu_avg, logvar_avg):
         self.model.zero_grad()
-        # z = self.model.reparameterize_eval(mu, logvar).to(self.device)
-        # one_hot = self.encode_one_hot_batch(z, mu, logvar, mu_avg, logvar_avg)
 
         mu = mu.to(self.device)
         self.score_fc = torch.sum(mu)
@@ -54,12 +52,9 @@ class PropBase(object):
 
         # returns the gradient/f_out specified in outputs.
         # Then returns it when it is the target layer
-        for key, value in outputs.items():
-            for module in self.model.named_modules():
-                if id(module[1]) == key:
-                    if module[0] == target_layer:
-                        return value
-        raise ValueError('invalid layer name: {}'.format(target_layer))
+
+        # outputs contains only the outputs of the one layer
+        return list(outputs.values())[0]
 
 class GradCAM(PropBase):
     # hook functions to compute gradients wrt intermediate results
@@ -82,9 +77,10 @@ class GradCAM(PropBase):
         # Loop over all layers in the network and store outputs of forward
         # and backward passes
         for module in self.model.named_modules():
-            # index 1 probably because activation function, not weights.
-            module[1].register_backward_hook(func_b)
-            module[1].register_forward_hook(func_f)
+            # module[0] is name [1] is the module itself
+            if module[0] == self.target_layer :
+                module[1].register_backward_hook(func_b)
+                module[1].register_forward_hook(func_f)
 
     def normalize(self, grads):
         """
@@ -125,8 +121,7 @@ class GradCAM(PropBase):
 
         # Compute M_i (I think? Where is the ReLu?
         # Why do they use cross corelation/convolution?)
-        print("grads", self.grads.size())
-        print("activ, weights", self.activation.size(), self.weights.size())
+
         gcam = F.conv3d(input=self.activation,
                         weight=self.weights.to(self.device), padding=0,
                         groups=len(self.weights))
