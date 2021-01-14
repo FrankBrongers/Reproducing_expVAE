@@ -136,6 +136,9 @@ ckpt/
 data/
 dmypy.json
 
+# Pretrained Models:
+MNIST_model/
+
 # Pyre type checker
 .pyre/
 .vscode/launch.json
