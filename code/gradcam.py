@@ -82,7 +82,7 @@ class GradCAM(PropBase):
         # Loop over all layers in the network and store outputs of forward
         # and backward passes
         for module in self.model.named_modules():
-            # index 1 probably because activation function, not weights.
+            # module[0] is name [1] is the module itself
             module[1].register_backward_hook(func_b)
             module[1].register_forward_hook(func_f)
 
