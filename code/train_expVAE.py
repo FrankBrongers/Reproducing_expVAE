@@ -50,17 +50,32 @@ def train(model, train_loader, optimizer, args):
     model.train()
     train_loss = 0
 
-    for batch_idx, (data, _) in enumerate(train_loader):
-        data = data.to(device)
+    if args.dataset == 'mnist':
+        for batch_idx, (data, _) in enumerate(train_loader):
+            data = data.to(device)
 
-        optimizer.zero_grad()
-        recon_batch, mu, logvar = model(data)
+            optimizer.zero_grad()
+            recon_batch, mu, logvar = model(data)
 
-        loss = loss_function(recon_batch, data, mu, logvar)
-        train_loss += loss.item()
+            loss = loss_function(recon_batch, data, mu, logvar)
+            train_loss += loss.item()
 
-        loss.backward()
-        optimizer.step()
+            loss.backward()
+            optimizer.step()
+            
+    elif args.dataset == 'mvtec_ad':
+        for batch_idx, data in enumerate(train_loader):
+            data = data[0]
+            data = data.to(device)
+
+            optimizer.zero_grad()
+            recon_batch, mu, logvar = model(data)
+
+            loss = loss_function(recon_batch, data, mu, logvar)
+            train_loss += loss.item()
+
+            loss.backward()
+            optimizer.step()
 
     train_loss /= len(train_loader.dataset)
 
@@ -130,8 +145,8 @@ def main(args):
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         class_name = mvtec.CLASS_NAMES[0]
-        train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True)
-        test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False)
+        train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=True)
+        test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=True)
         
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
     train_loader = torch.utils.data.DataLoader(
