@@ -13,6 +13,8 @@ from models.vanilla import ConvVAE
 from models.resnet18 import ResNet18VAE
 
 import OneClassMnist
+import MVTec_loader as mvtec
+
 
 
 def loss_function(recon_x, x, mu, logvar):
@@ -123,12 +125,15 @@ def main(args):
         one_class = args.one_class # Choose the inlier digit to be 3
         train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
         test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
-        kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
     elif args.dataset == 'ucsd_ped1':
         pass
     elif args.dataset == 'mvtec_ad':
-        pass
-
+        # for dataloader check: pin pin_memory, batch size 32 in original
+        class_name = mvtec.CLASS_NAMES[0]
+        train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True)
+        test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False)
+        
+    kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
