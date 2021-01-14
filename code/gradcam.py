@@ -27,19 +27,6 @@ class PropBase(object):
     def set_hook_func(self):
         raise NotImplementedError
 
-    # set the target class as one others as zero. use this vector for back prop
-    # def encode_one_hot(self, idx):
-    #     one_hot = torch.FloatTensor(1, self.n_class).zero_()
-    #     one_hot[0][idx] = 1.0
-    #     return one_hot
-
-    # TODO: change this function and ask Lezi what she was thinking here
-    # set the target class as one others as zero. use this vector for back prop added by Lezi
-
-    # def encode_one_hot_batch(self, z, mu, logvar, mu_avg, logvar_avg):
-    #     one_hot_batch = torch.FloatTensor(z.size()).zero_()
-    #     # They return mu here. Probably one_hot_batch is not implemented yet.
-    #     return mu
 
     def forward(self, x):
         self.preds = self.model(x)
@@ -138,6 +125,8 @@ class GradCAM(PropBase):
 
         # Compute M_i (I think? Where is the ReLu?
         # Why do they use cross corelation/convolution?)
+        print("grads", self.grads.size())
+        print("activ, weights", self.activation.size(), self.weights.size())
         gcam = F.conv3d(input=self.activation,
                         weight=self.weights.to(self.device), padding=0,
                         groups=len(self.weights))
@@ -146,5 +135,6 @@ class GradCAM(PropBase):
         gcam = F.interpolate(gcam, (self.image_size, self.image_size),
                                 mode="bilinear", align_corners=True)
         gcam = torch.abs(gcam)
+        # gcam = F.relu(gcam)
 
         return gcam

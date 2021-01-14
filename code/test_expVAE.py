@@ -80,7 +80,7 @@ def main(args):
         model.zero_grad()
         gcam.backward(mu, logvar, mu_avg, logvar_avg)
         gcam_map = gcam.generate()
-
+        print("x, heatmap", x.size(), gcam_map.size())
         # Visualize and save attention maps
         x = x.repeat(1, 3, 1, 1)
         for i in range(x.size(0)):
@@ -120,7 +120,7 @@ if __name__ == '__main__':
                         help='latent vector size of encoder')
     parser.add_argument('--model_path', type=str, default='./ckpt/vanilla_best.pth', metavar='DIR',
                         help='pretrained model directory')
-    parser.add_argument('--one_class', type=int, default=8, metavar='N',
+    parser.add_argument('--one_class', type=int, default=7, metavar='N',
                         help='inlier digit for one-class VAE training')
 
     args = parser.parse_args()

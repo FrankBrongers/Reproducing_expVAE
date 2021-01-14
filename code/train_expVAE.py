@@ -219,7 +219,7 @@ if __name__ == '__main__':
                         help='select one of the following models: vanilla, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
-    parser.add_argument('--one_class', type=int, default=3, metavar='N',
+    parser.add_argument('--one_class', type=int, default=1, metavar='N',
                         help='inlier digit for one-class VAE training')
 
 
