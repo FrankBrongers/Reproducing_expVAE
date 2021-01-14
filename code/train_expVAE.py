@@ -118,17 +118,22 @@ def main(args):
     torch.manual_seed(args.seed)
 
 
-    # Load datasets
-    one_class = args.one_class # Choose the inlier digit to be 3
-    one_mnist_train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
-    one_mnist_test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
-    kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
+    # Load dataset
+    if args.dataset == 'mnist':
+        one_class = args.one_class # Choose the inlier digit to be 3
+        train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
+        test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
+        kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
+    elif args.dataset == 'ucsd_ped1':
+        pass
+    elif args.dataset == 'mvtec_ad':
+        pass
 
     train_loader = torch.utils.data.DataLoader(
-        one_mnist_train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
+        train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
     test_loader = torch.utils.data.DataLoader(
-        one_mnist_test_dataset,
+        test_dataset,
         batch_size=args.batch_size, shuffle=True, **kwargs)
 
 
@@ -219,6 +224,10 @@ if __name__ == '__main__':
                         help='select one of the following models: vanilla, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
+
+    # Dataset parameters
+    parser.add_argument('--dataset', type=str, default='mnist',
+                        help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--one_class', type=int, default=1, metavar='N',
                         help='inlier digit for one-class VAE training')
 
