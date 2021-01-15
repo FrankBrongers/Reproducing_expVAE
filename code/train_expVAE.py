@@ -17,7 +17,7 @@ import MVTec_loader as mvtec
 
 
 
-def loss_function(recon_x, x, mu, logvar):
+def loss_function(recon_x, x, mu, logvar, color = False):
     """
     Calculates the reconstruction (binary cross entropy) and regularization (KLD) losses to form the total loss of the VAE.
     Inputs:
@@ -28,12 +28,14 @@ def loss_function(recon_x, x, mu, logvar):
     """
     # get batchsize
     B = recon_x.shape[0]
-
+    nc = x.shape[1]
     # reconstruction loss
-    BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum')
+    if nc > 1:
+        BCE = F.binary_cross_entropy_with_logits(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
+    else:
+        BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum')
 
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-
     return BCE + KLD
 
 
@@ -62,7 +64,7 @@ def train(model, train_loader, optimizer, args):
 
             loss.backward()
             optimizer.step()
-            
+
     elif args.dataset == 'mvtec_ad':
         for batch_idx, data in enumerate(train_loader):
             data = data[0]
@@ -94,15 +96,22 @@ def test(model, test_loader, args):
     test_loss = 0
 
     with torch.no_grad():
-        for batch_idx, (data, _) in enumerate(test_loader):
-            data = data.to(device)
+        if args.dataset == 'mvtec_ad':
+            for batch_idx, data in enumerate(test_loader):
+                data = data[0].to(device)
 
-            recon_batch, mu, logvar = model(data)
+                recon_batch, mu, logvar = model(data)
 
-            test_loss += loss_function(recon_batch, data, mu, logvar).item()
+                test_loss += loss_function(recon_batch, data, mu, logvar).item()
 
+        else:
+            for batch_idx, (data, _) in enumerate(test_loader):
+                data = data.to(device)
+
+                recon_batch, mu, logvar = model(data)
+
+                test_loss += loss_function(recon_batch, data, mu, logvar).item()
     test_loss /= len(test_loader.dataset)
-
     return test_loss
 
 
@@ -136,7 +145,10 @@ def main(args):
 
 
     # Load dataset
+
     if args.dataset == 'mnist':
+        # for generating images
+        imshape = [64, 1, 28, 28]
         one_class = args.one_class # Choose the inlier digit to be 3
         train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
         test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
@@ -144,10 +156,11 @@ def main(args):
         pass
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
+        imshape = [64, 3, 256, 256 ]
         class_name = mvtec.CLASS_NAMES[0]
         train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
-        
+
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
@@ -161,7 +174,7 @@ def main(args):
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
     elif args.model == 'resnet18':
-        model = ResNet18VAE(args.latent_size).to(device)
+        model = ResNet18VAE(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
 
 
     # Create optimizer
@@ -205,13 +218,13 @@ def main(args):
 
         # Visualize sample validation result
         with torch.no_grad():
-            sample = torch.randn(64, 32).to(device)
+            sample = torch.randn(64, args.latent_size).to(device)
             sample = model.decode(sample).cpu()
             img = make_grid(sample)
             save_dir = os.path.join('./',args.result_dir)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            save_image(sample.view(64, 1, 28, 28), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
+            save_image(sample.view(imshape), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
 
 if __name__ == '__main__':
 
