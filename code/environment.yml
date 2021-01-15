@@ -10,9 +10,9 @@ dependencies:
   - blas=1.0=mkl
   - bzip2=1.0.8=h7f98852_4
   - c-ares=1.17.1=h36c2ea0_0
-  - ca-certificates=2020.10.14=0
+  - ca-certificates=2020.12.8=h06a4308_0
   - cairo=1.16.0=h7979940_1007
-  - certifi=2020.6.20=py38_0
+  - certifi=2020.12.5=py38h06a4308_0
   - cudatoolkit=11.0.221=h6bb024c_0
   - dbus=1.13.6=hfdff14a_1
   - expat=2.2.9=he1b5a44_2
@@ -83,7 +83,7 @@ dependencies:
   - olefile=0.46=py_0
   - opencv=4.5.0=py38_6
   - openh264=2.1.1=h780b84a_0
-  - openssl=1.1.1i=h7f98852_0
+  - openssl=1.1.1i=h27cfd23_0
   - pcre=8.44=he1b5a44_0
   - pillow=8.1.0=py38he98fc37_0
   - pip=20.3.3=py38h06a4308_0
@@ -100,6 +100,7 @@ dependencies:
   - sqlite=3.34.0=h74cdb3f_0
   - tk=8.6.10=hbc83047_0
   - torchvision=0.8.1=py38_cu110
+  - tqdm=4.55.1=pyhd3eb1b0_0
   - typing_extensions=3.7.4.3=py_0
   - wheel=0.36.2=pyhd3eb1b0_0
   - x264=1!161.3030=h7f98852_0
@@ -117,4 +118,4 @@ dependencies:
   - xz=5.2.5=h7b6447c_0
   - zlib=1.2.11=h7b6447c_3
   - zstd=1.4.5=h9ceee32_0
-prefix: /home/frank/miniconda3/envs/fact-ai
+prefix: /home/vivien/anaconda3/envs/fact-ai
