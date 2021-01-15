@@ -122,6 +122,7 @@ class ResNet18Dec(nn.Module):
         self.in_planes = 512
         self.x_dim = x_dim
         self.linear = nn.Linear(z_dim, 512)
+        self.nc = nc
 
         self.layer4 = self._make_layer(BasicBlockDec, 256, num_Blocks[3], stride=2)
         self.layer3 = self._make_layer(BasicBlockDec, 128, num_Blocks[2], stride=2)
@@ -151,15 +152,15 @@ class ResNet18Dec(nn.Module):
         x = self.layer1(x)
 
         x = torch.sigmoid(self.conv1(x))
-        x = x.view(x.size(0), 1, self.x_dim, self.x_dim)
+        x = x.view(x.size(0), self.nc , self.x_dim, self.x_dim)
         return x
 
 class ResNet18VAE(nn.Module):
 
-    def __init__(self, z_dim):
+    def __init__(self, z_dim, x_dim =28, nc = 3):
         super().__init__()
-        self.encoder = ResNet18Enc(z_dim=z_dim, x_dim=28, nc=1)
-        self.decoder = ResNet18Dec(z_dim=z_dim, x_dim=28, nc=1)
+        self.encoder = ResNet18Enc(z_dim=z_dim, x_dim=x_dim, nc=nc)
+        self.decoder = ResNet18Dec(z_dim=z_dim, x_dim=x_dim, nc=nc)
 
     def forward(self, x):
         mean, logvar = self.encoder(x)
@@ -179,7 +180,7 @@ class ResNet18VAE(nn.Module):
         std = torch.exp(logvar / 2) # in log-space, squareroot is divide by two
         epsilon = torch.randn_like(std)
         return epsilon * std + mean
-    
+
     @staticmethod
     def reparameterize(mean, logvar):
         std = torch.exp(logvar / 2) # in log-space, squareroot is divide by two

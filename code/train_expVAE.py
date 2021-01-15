@@ -19,7 +19,7 @@ import MVTec_loader as mvtec
 
 
 
-def loss_function(recon_x, x, mu, logvar):
+def loss_function(recon_x, x, mu, logvar, color = False):
     """
     Calculates the reconstruction (binary cross entropy) and regularization (KLD) losses to form the total loss of the VAE.
     Inputs:
@@ -30,12 +30,14 @@ def loss_function(recon_x, x, mu, logvar):
     """
     # get batchsize
     B = recon_x.shape[0]
-
+    nc = x.shape[1]
     # reconstruction loss
-    BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum')
+    if nc > 1:
+        BCE = F.binary_cross_entropy_with_logits(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
+    else:
+        BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum')
 
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-
     return BCE + KLD
 
 
@@ -87,9 +89,7 @@ def test(model, test_loader, args):
             recon_batch, mu, logvar = model(data)
 
             test_loss += loss_function(recon_batch, data, mu, logvar).item()
-
     test_loss /= len(test_loader.dataset)
-
     return test_loss
 
 
@@ -116,26 +116,29 @@ def main(args):
     Inputs:
         args - Namespace object from the argument parser
     """
-    print("device is", device)
+    print("Device is", device)
 
     # Seed everything
     torch.manual_seed(args.seed)
 
-
     # Load dataset
     if args.dataset == 'mnist':
+        # for generating images
+        imshape = [64, 1, 28, 28]
         one_class = args.one_class # Choose the inlier digit to be 3
         train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
         test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
+        imshape = [64, 1, 100, 100]
         train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=100)
         test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
+        imshape = [64, 3, 256, 256 ]
         class_name = mvtec.CLASS_NAMES[0]
-        train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True)
-        test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False)
-        
+        train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
+        test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
+
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
@@ -144,19 +147,16 @@ def main(args):
         test_dataset,
         batch_size=args.batch_size, shuffle=True, **kwargs)
 
-
     # Select a model architecture
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
         model = ConvVAE_ped1(args.latent_size).to(device)
     elif args.model == 'resnet18':
-        model = ResNet18VAE(args.latent_size).to(device)
-
+        model = ResNet18VAE(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
 
     # Create optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
-
 
     start_epoch = 0
     best_test_loss = np.finfo('f').max
@@ -173,7 +173,6 @@ def main(args):
             print('=> loaded checkpoint %s' % args.resume)
         else:
             print('=> no checkpoint found at %s' % args.resume)
-
 
     # Training and testing
     for epoch in range(start_epoch, args.epochs):
@@ -195,15 +194,17 @@ def main(args):
 
         # Visualize sample validation result
         with torch.no_grad():
-            sample = torch.randn(64, 32).to(device)
+            sample = torch.randn(64, args.latent_size).to(device)
             sample = model.decode(sample).cpu()
+
+            # Normalize output images
             sample = sample - torch.min(sample)
             sample = sample / torch.max(sample)
-            # sample = transforms.Normalize( )
+
             save_dir = os.path.join('./',args.result_dir)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            save_image(sample.view(64, 1, args.image_size, args.image_size), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
+            save_image(sample.view(imshape), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
 
 if __name__ == '__main__':
 
@@ -242,9 +243,6 @@ if __name__ == '__main__':
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--one_class', type=int, default=1, metavar='N',
                         help='inlier digit for one-class VAE training')
-    parser.add_argument('--image_size', type=int, default=100,
-                        help='select an image size for training.')
-
 
     args = parser.parse_args()
 
