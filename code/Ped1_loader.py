@@ -4,8 +4,6 @@ import torch.utils.data as data
 import os
 import torchvision.transforms as transforms
 
-URL = 'http://www.svcl.ucsd.edu/projects/anomaly/UCSD_Anomaly_Dataset.tar.gz'
-
 
 class UCSDAnomalyDataset(data.Dataset):
     def __init__(self, root_path='./data', train=True, resize=100):
@@ -28,15 +26,12 @@ class UCSDAnomalyDataset(data.Dataset):
                     transforms.Resize((resize, resize)),
                     transforms.Grayscale(),
                     transforms.ToTensor()])
-        # self.tensor_transform = transforms.Compose([
-        #             transforms.Normalize(mean=(0.3750352255196134,), std=(0.20129592430286292,))])
-        
+
     def __getitem__(self, index):
         with open(self.samples[index], 'rb') as fin:
             frame = Image.open(fin).convert('RGB')
             frame = self.pil_transform(frame) / 255.0
         return frame, torch.zeros_like(frame) # TODO return gt
-
 
     def __len__(self):
         return len(self.samples)

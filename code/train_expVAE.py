@@ -2,8 +2,8 @@ import argparse
 import torch
 import torch.optim as optim
 from torch.nn import functional as F
-from torchvision import datasets, transforms
-from torchvision.utils import save_image, make_grid
+from torchvision import transforms
+from torchvision.utils import save_image
 
 import os
 import shutil
@@ -16,7 +16,6 @@ from models.resnet18 import ResNet18VAE
 import OneClassMnist
 import Ped1_loader
 import MVTec_loader as mvtec
-
 
 
 def loss_function(recon_x, x, mu, logvar, color = False):
@@ -67,8 +66,8 @@ def train(model, train_loader, optimizer, args):
         optimizer.step()
 
     train_loss /= len(train_loader.dataset)
-
     return train_loss
+
 
 def test(model, test_loader, args):
     """
@@ -230,7 +229,6 @@ if __name__ == '__main__':
                         help='random seed (default: 1)')
     parser.add_argument('--num_workers', default=4, type=int,
                         help='Number of workers to use in the data loaders.')
-
 
     # Model parameters
     parser.add_argument('--model', type=str, default='vanilla_ped1',
