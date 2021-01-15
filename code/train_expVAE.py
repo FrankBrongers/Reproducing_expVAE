@@ -10,9 +10,11 @@ import shutil
 import numpy as np
 
 from models.vanilla import ConvVAE
+from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 
 import OneClassMnist
+import Ped1_loader
 import MVTec_loader as mvtec
 
 
@@ -126,7 +128,8 @@ def main(args):
         train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
         test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
-        pass
+        train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=100)
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         class_name = mvtec.CLASS_NAMES[0]
@@ -145,6 +148,8 @@ def main(args):
     # Select a model architecture
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
+    elif args.model == 'vanilla_ped1':
+        model = ConvVAE_ped1(args.latent_size).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
 
@@ -192,11 +197,13 @@ def main(args):
         with torch.no_grad():
             sample = torch.randn(64, 32).to(device)
             sample = model.decode(sample).cpu()
-            img = make_grid(sample)
+            sample = sample - torch.min(sample)
+            sample = sample / torch.max(sample)
+            # sample = transforms.Normalize( )
             save_dir = os.path.join('./',args.result_dir)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            save_image(sample.view(64, 1, 28, 28), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
+            save_image(sample.view(64, 1, args.image_size, args.image_size), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
 
 if __name__ == '__main__':
 
@@ -212,7 +219,7 @@ if __name__ == '__main__':
                         help='path to latest checkpoint (default: None')
 
     # Training parameters
-    parser.add_argument('--batch_size', type=int, default=128, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=2, metavar='N',
                         help='input batch size for training (default: 128)')
     parser.add_argument('--learning_rate', default=1e-3, type=float,
                         help='Learning rate to use')
@@ -225,16 +232,18 @@ if __name__ == '__main__':
 
 
     # Model parameters
-    parser.add_argument('--model', type=str, default='vanilla',
-                        help='select one of the following models: vanilla, resnet18')
+    parser.add_argument('--model', type=str, default='vanilla_ped1',
+                        help='select one of the following models: vanilla, resnet18, vanilla_ped1')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
 
     # Dataset parameters
-    parser.add_argument('--dataset', type=str, default='mnist',
+    parser.add_argument('--dataset', type=str, default='ucsd_ped1',
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--one_class', type=int, default=1, metavar='N',
                         help='inlier digit for one-class VAE training')
+    parser.add_argument('--image_size', type=int, default=100,
+                        help='select an image size for training.')
 
 
     args = parser.parse_args()
