@@ -145,8 +145,8 @@ def main(args):
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         class_name = mvtec.CLASS_NAMES[0]
-        train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=True)
-        test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=True)
+        train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
+        test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
         
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
     train_loader = torch.utils.data.DataLoader(
