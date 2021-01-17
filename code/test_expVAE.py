@@ -89,7 +89,7 @@ def main(args):
     for batch_idx, (x, y) in enumerate(test_loader):
         pass
 
-    steps = 100
+    steps = 1
 
     # Generate attention maps
     for batch_idx, (x, _) in enumerate(test_loader):
@@ -119,6 +119,7 @@ def main(args):
             save_cam(r_im, file_path, gcam_map[i].squeeze().cpu().data.numpy())
             test_index += 1
 
+        print(batch_idx)
         if batch_idx == steps:
             return
 
@@ -131,11 +132,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Explainable VAE')
     parser.add_argument('--result_dir', type=str, default='test_results', metavar='DIR',
                         help='output directory')
-    parser.add_argument('--batch_size', type=int, default=4, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 128)')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--num_workers', default=4, type=int,
+    parser.add_argument('--num_workers', default=1, type=int,
                         help='Number of workers to use in the data loaders.')
 
     # model option
