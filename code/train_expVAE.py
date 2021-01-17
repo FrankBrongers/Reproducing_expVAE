@@ -2,19 +2,20 @@ import argparse
 import torch
 import torch.optim as optim
 from torch.nn import functional as F
-from torchvision import datasets, transforms
-from torchvision.utils import save_image, make_grid
+from torchvision import transforms
+from torchvision.utils import save_image
 
 import os
 import shutil
 import numpy as np
 
 from models.vanilla import ConvVAE
+from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 
 import OneClassMnist
+import Ped1_loader
 import MVTec_loader as mvtec
-
 
 
 def loss_function(recon_x, x, mu, logvar, color = False):
@@ -55,36 +56,21 @@ def train(model, train_loader, optimizer, args):
     model.train()
     train_loss = 0
 
-    if args.dataset == 'mnist':
-        for batch_idx, (data, _) in enumerate(train_loader):
-            data = data.to(device)
+    for batch_idx, (data, _) in enumerate(train_loader):
+        data = data.to(device)
 
-            optimizer.zero_grad()
-            recon_batch, mu, logvar = model(data)
+        optimizer.zero_grad()
+        recon_batch, mu, logvar = model(data)
 
-            loss = loss_function(recon_batch, data, mu, logvar)
-            train_loss += loss.item()
+        loss = loss_function(recon_batch, data, mu, logvar)
+        train_loss += loss.item()
 
-            loss.backward()
-            optimizer.step()
-
-    elif args.dataset == 'mvtec_ad':
-        for batch_idx, data in enumerate(train_loader):
-            data = data[0]
-            data = data.to(device)
-
-            optimizer.zero_grad()
-            recon_batch, mu, logvar = model(data)
-
-            loss = loss_function(recon_batch, data, mu, logvar)
-            train_loss += loss.item()
-
-            loss.backward()
-            optimizer.step()
+        loss.backward()
+        optimizer.step()
 
     train_loss /= len(train_loader.dataset)
-
     return train_loss
+
 
 def test(model, test_loader, args):
     """
@@ -99,21 +85,12 @@ def test(model, test_loader, args):
     test_loss = 0
 
     with torch.no_grad():
-        if args.dataset == 'mvtec_ad':
-            for batch_idx, data in enumerate(test_loader):
-                data = data[0].to(device)
+        for batch_idx, (data, _) in enumerate(test_loader):
+            data = data.to(device)
 
-                recon_batch, mu, logvar = model(data)
+            recon_batch, mu, logvar = model(data)
 
-                test_loss += loss_function(recon_batch, data, mu, logvar).item()
-
-        else:
-            for batch_idx, (data, _) in enumerate(test_loader):
-                data = data.to(device)
-
-                recon_batch, mu, logvar = model(data)
-
-                test_loss += loss_function(recon_batch, data, mu, logvar).item()
+            test_loss += loss_function(recon_batch, data, mu, logvar).item()
     test_loss /= len(test_loader.dataset)
     return test_loss
 
@@ -141,14 +118,12 @@ def main(args):
     Inputs:
         args - Namespace object from the argument parser
     """
-    print("device is", device)
+    print("Device is", device)
 
     # Seed everything
     torch.manual_seed(args.seed)
 
-
     # Load dataset
-
     if args.dataset == 'mnist':
         # for generating images
         imshape = [64, 1, 28, 28]
@@ -156,7 +131,9 @@ def main(args):
         train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
         test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
-        pass
+        imshape = [64, 1, 100, 100]
+        train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=100)
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         imshape = [64, 3, 256, 256 ]
@@ -172,17 +149,16 @@ def main(args):
         test_dataset,
         batch_size=args.batch_size, shuffle=True, **kwargs)
 
-
     # Select a model architecture
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
+    elif args.model == 'vanilla_ped1':
+        model = ConvVAE_ped1(args.latent_size).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
 
-
     # Create optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
-
 
     start_epoch = 0
     best_test_loss = np.finfo('f').max
@@ -199,7 +175,6 @@ def main(args):
             print('=> loaded checkpoint %s' % args.resume)
         else:
             print('=> no checkpoint found at %s' % args.resume)
-
 
     # Training and testing
     for epoch in range(start_epoch, args.epochs):
@@ -223,7 +198,11 @@ def main(args):
         with torch.no_grad():
             sample = torch.randn(64, args.latent_size).to(device)
             sample = model.decode(sample).cpu()
-            sample = (sample - torch.min(sample)) / torch.max(sample)
+
+            # Normalize output images
+            sample = sample - torch.min(sample)
+            sample = sample / torch.max(sample)
+
             save_dir = os.path.join('./',args.result_dir)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
@@ -243,7 +222,7 @@ if __name__ == '__main__':
                         help='path to latest checkpoint (default: None')
 
     # Training parameters
-    parser.add_argument('--batch_size', type=int, default=128, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=2, metavar='N',
                         help='input batch size for training (default: 128)')
     parser.add_argument('--learning_rate', default=1e-3, type=float,
                         help='Learning rate to use')
@@ -254,19 +233,17 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', default=4, type=int,
                         help='Number of workers to use in the data loaders.')
 
-
     # Model parameters
-    parser.add_argument('--model', type=str, default='vanilla',
-                        help='select one of the following models: vanilla, resnet18')
+    parser.add_argument('--model', type=str, default='vanilla_ped1',
+                        help='select one of the following models: vanilla, resnet18, vanilla_ped1')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
 
     # Dataset parameters
-    parser.add_argument('--dataset', type=str, default='mnist',
+    parser.add_argument('--dataset', type=str, default='ucsd_ped1',
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--one_class', type=int, default=1, metavar='N',
                         help='inlier digit for one-class VAE training')
-
 
     args = parser.parse_args()
 

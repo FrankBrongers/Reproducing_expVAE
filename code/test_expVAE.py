@@ -6,9 +6,13 @@ import os
 import numpy as np
 
 from models.vanilla import ConvVAE
+from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 
 import OneClassMnist
+import Ped1_loader
+import MVTec_loader as mvtec
+
 from gradcam import GradCAM
 import cv2
 from PIL import Image
@@ -45,32 +49,47 @@ def main(args):
 
     # Load the dataset
     one_class = args.one_class # Choose the current outlier digit to be 8
-    one_mnist_test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
+
+    # Load dataset
+    if args.dataset == 'mnist':
+        test_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=False, transform=transforms.ToTensor())
+    elif args.dataset == 'ucsd_ped1':
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
+    elif args.dataset == 'mvtec_ad':
+        # for dataloader check: pin pin_memory, batch size 32 in original
+        class_name = mvtec.CLASS_NAMES[0]
+        test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
-        one_mnist_test_dataset,
+        test_dataset,
         batch_size=args.batch_size, shuffle=False, **kwargs)
-
 
     # Select a model architecture
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
         target_layer = 'encoder.2'
+    elif args.model == 'vanilla_ped1':
+        model = ConvVAE_ped1(args.latent_size).to(device)
+        target_layer = 'encoder.3'
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
         # TODO Understand why to choose a specific target layer
         target_layer = 'encoder.layer4.1.conv2'
 
-
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
-    print("model iss", model)
+    print("model is", model)
     mu_avg, logvar_avg = 0, 1
     gcam = GradCAM(model, target_layer=target_layer, device= device)
     test_index=0
 
+    # Compute AUROC score
+    for batch_idx, (x, y) in enumerate(test_loader):
+        pass
+
+    steps = 1
 
     # Generate attention maps
     for batch_idx, (x, _) in enumerate(test_loader):
@@ -81,7 +100,7 @@ def main(args):
         model.zero_grad()
         gcam.backward(mu, logvar, mu_avg, logvar_avg)
         gcam_map = gcam.generate()
-        print("x, heatmap", x.size(), gcam_map.size())
+
         # Visualize and save attention maps
         x = x.repeat(1, 3, 1, 1)
         for i in range(x.size(0)):
@@ -100,6 +119,11 @@ def main(args):
             save_cam(r_im, file_path, gcam_map[i].squeeze().cpu().data.numpy())
             test_index += 1
 
+        print(batch_idx)
+        if batch_idx == steps:
+            return
+
+
 if __name__ == '__main__':
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -108,20 +132,24 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Explainable VAE')
     parser.add_argument('--result_dir', type=str, default='test_results', metavar='DIR',
                         help='output directory')
-    parser.add_argument('--batch_size', type=int, default=128, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=1, metavar='N',
                         help='input batch size for training (default: 128)')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--num_workers', default=4, type=int,
+    parser.add_argument('--num_workers', default=1, type=int,
                         help='Number of workers to use in the data loaders.')
 
     # model option
-    parser.add_argument('--model', type=str, default='vanilla',
-                        help='select one of the following models: vanilla, resnet18')
+    parser.add_argument('--model', type=str, default='vanilla_ped1',
+                        help='select one of the following models: vanilla, vanilla_ped1, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
-    parser.add_argument('--model_path', type=str, default='./ckpt/vanilla_best.pth', metavar='DIR',
+    parser.add_argument('--model_path', type=str, default='./ckpt/vanilla_ped1_best.pth', metavar='DIR',
                         help='pretrained model directory')
+
+    # Dataset parameters
+    parser.add_argument('--dataset', type=str, default='ucsd_ped1',
+                        help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--one_class', type=int, default=7, metavar='N',
                         help='inlier digit for one-class VAE training')
 
