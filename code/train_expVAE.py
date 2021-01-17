@@ -27,15 +27,18 @@ def loss_function(recon_x, x, mu, logvar, color = False):
         log_var - Log standard deviation of the posterior distributions.
     """
     # get batchsize
+    print(recon_x[0])
+    print(torch.max(x), torch.min(x), torch.max(recon_x), torch.min(recon_x),)
     B = recon_x.shape[0]
     nc = x.shape[1]
     # reconstruction loss
-    if nc > 1:
-        BCE = F.binary_cross_entropy_with_logits(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
-    else:
-        BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum')
+    # if nc > 1:
+    #     BCE = F.binary_cross_entropy_with_logits(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
+    # else:
+    BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
 
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    print("bce, kld", BCE, KLD)
     return BCE + KLD
 
 
@@ -157,7 +160,7 @@ def main(args):
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         imshape = [64, 3, 256, 256 ]
-        class_name = mvtec.CLASS_NAMES[0]
+        class_name = mvtec.CLASS_NAMES[0]   # nuts
         train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
 
@@ -220,7 +223,7 @@ def main(args):
         with torch.no_grad():
             sample = torch.randn(64, args.latent_size).to(device)
             sample = model.decode(sample).cpu()
-            img = make_grid(sample)
+            sample = (sample - torch.min(sample)) / torch.max(sample)
             save_dir = os.path.join('./',args.result_dir)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
