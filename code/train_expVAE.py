@@ -5,6 +5,7 @@ from torch.nn import functional as F
 from torchvision import transforms
 from torchvision.utils import save_image
 
+
 import os
 import shutil
 import numpy as np
@@ -40,7 +41,7 @@ def loss_function(recon_x, x, mu, logvar, color = False):
     return BCE + KLD
 
 
-def train(model, train_loader, optimizer, args):
+def train(model, train_loader, optimizer, scheduler, args):
     """
     Function for training a model on a dataset. Train for one epoch.
     Inputs:
@@ -64,6 +65,7 @@ def train(model, train_loader, optimizer, args):
 
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
     train_loss /= len(train_loader.dataset)
     return train_loss
@@ -156,6 +158,7 @@ def main(args):
 
     # Create optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
 
     start_epoch = 0
     best_test_loss = np.finfo('f').max
@@ -175,7 +178,7 @@ def main(args):
 
     # Training and testing
     for epoch in range(start_epoch, args.epochs):
-        train_loss = train(model, train_loader, optimizer, args)
+        train_loss = train(model, train_loader, optimizer, scheduler, args)
         test_loss = test(model, test_loader,args)
 
         print('Epoch [%d/%d] loss: %.3f val_loss: %.3f' % (epoch + 1, args.epochs, train_loss, test_loss))
