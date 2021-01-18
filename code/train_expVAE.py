@@ -29,16 +29,12 @@ def loss_function(recon_x, x, mu, logvar, color = False):
     """
     # get batchsize
     # print(recon_x[0])
+    # x = x + 1
     # print(torch.max(x), torch.min(x), torch.max(recon_x), torch.min(recon_x),)
     B = recon_x.shape[0]
-    nc = x.shape[1]
-    # reconstruction loss
-    # if nc > 1:
-    #     BCE = F.binary_cross_entropy_with_logits(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
-    # else:
     BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
 
-    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
     # print("bce, kld", BCE, KLD)
     return BCE + KLD
 
@@ -86,7 +82,9 @@ def test(model, test_loader, args):
     with torch.no_grad():
         for batch_idx, (data, _) in enumerate(test_loader):
             data = data.to(device)
-
+            # newdat = np.array(data[0].cpu()).T
+            # plt.imshow(newdat,  cmap='gray')
+            # plt.show()
             recon_batch, mu, logvar = model(data)
 
             test_loss += loss_function(recon_batch, data, mu, logvar).item()
@@ -136,7 +134,7 @@ def main(args):
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         imshape = [64, 3, 256, 256 ]
-        class_name = mvtec.CLASS_NAMES[0]   # nuts
+        class_name = mvtec.CLASS_NAMES[5]   # nuts
         train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
 
