@@ -5,6 +5,7 @@ from torch.nn import functional as F
 from torchvision import transforms
 from torchvision.utils import save_image
 
+
 import os
 import shutil
 import numpy as np
@@ -16,7 +17,7 @@ from models.resnet18 import ResNet18VAE
 import OneClassMnist
 import Ped1_loader
 import MVTec_loader as mvtec
-
+import matplotlib.pyplot as plt
 
 def loss_function(recon_x, x, mu, logvar, color = False):
     """
@@ -28,19 +29,18 @@ def loss_function(recon_x, x, mu, logvar, color = False):
         log_var - Log standard deviation of the posterior distributions.
     """
     # get batchsize
+    # print(recon_x[0])
+    # x = x + 1
+    # print(torch.max(x), torch.min(x), torch.max(recon_x), torch.min(recon_x),)
     B = recon_x.shape[0]
-    nc = x.shape[1]
-    # reconstruction loss
-    if nc > 1:
-        BCE = F.binary_cross_entropy_with_logits(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
-    else:
-        BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum')
+    BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
 
-    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
+    # print("bce, kld", BCE, KLD)
     return BCE + KLD
 
 
-def train(model, train_loader, optimizer, args):
+def train(model, train_loader, optimizer, scheduler, args):
     """
     Function for training a model on a dataset. Train for one epoch.
     Inputs:
@@ -55,7 +55,6 @@ def train(model, train_loader, optimizer, args):
 
     for batch_idx, (data, _) in enumerate(train_loader):
         data = data.to(device)
-
         optimizer.zero_grad()
         recon_batch, mu, logvar = model(data)
 
@@ -64,6 +63,7 @@ def train(model, train_loader, optimizer, args):
 
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
     train_loss /= len(train_loader.dataset)
     return train_loss
@@ -84,7 +84,9 @@ def test(model, test_loader, args):
     with torch.no_grad():
         for batch_idx, (data, _) in enumerate(test_loader):
             data = data.to(device)
-
+            # newdat = np.array(data[0].cpu()).T
+            # plt.imshow(newdat,  cmap='gray')
+            # plt.show()
             recon_batch, mu, logvar = model(data)
 
             test_loss += loss_function(recon_batch, data, mu, logvar).item()
@@ -134,7 +136,7 @@ def main(args):
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         imshape = [64, 3, 256, 256 ]
-        class_name = mvtec.CLASS_NAMES[0]
+        class_name = mvtec.CLASS_NAMES[5]   # nuts
         train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
 
@@ -156,6 +158,7 @@ def main(args):
 
     # Create optimizer
     optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
 
     start_epoch = 0
     best_test_loss = np.finfo('f').max
@@ -175,7 +178,7 @@ def main(args):
 
     # Training and testing
     for epoch in range(start_epoch, args.epochs):
-        train_loss = train(model, train_loader, optimizer, args)
+        train_loss = train(model, train_loader, optimizer, scheduler, args)
         test_loss = test(model, test_loader,args)
 
         print('Epoch [%d/%d] loss: %.3f val_loss: %.3f' % (epoch + 1, args.epochs, train_loss, test_loss))
