@@ -17,7 +17,7 @@ CLASS_NAMES = ['bottle', 'cable', 'capsule', 'carpet', 'grid',
 
 class MVTecDataset(Dataset):
     def __init__(self, root_path='./data', class_name='bottle', is_train=True,
-                 resize=256, cropsize=256, grayscale=False):
+                 resize=256, cropsize=256, grayscale=True):
         assert class_name in CLASS_NAMES, 'class_name: {}, should be in {}'.format(class_name, CLASS_NAMES)
         self.root_path = root_path
         self.class_name = class_name
@@ -38,13 +38,16 @@ class MVTecDataset(Dataset):
                                 T.Grayscale(num_output_channels=1),
                                 T.CenterCrop(cropsize),
                                 T.ToTensor(),
-                                T.Normalize((0.5), (0.5)) ])
+                                # T.Normalize((0.5), (0.5))
+                                ])
         else:
             self.transform_x = T.Compose([T.Resize(resize, Image.ANTIALIAS),
                                         T.CenterCrop(cropsize),
-                                        T.ToTensor(),
-                                        T.Normalize(mean=[0.485, 0.456, 0.406],
-                                                    std=[0.229, 0.224, 0.225])])
+                                        T.ToTensor()
+                                        # T.Normalize((0.5, 0.5, 0.5),
+                                        #             (0.5, 0.5, 0.5))
+                                                    ])
+
 
         self.transform_mask = T.Compose([T.Resize(resize, Image.NEAREST),
                                          T.CenterCrop(cropsize),
@@ -62,7 +65,8 @@ class MVTecDataset(Dataset):
             mask = Image.open(mask)
             mask = self.transform_mask(mask)
 
-        return x, y, mask
+        # return x, y, mask
+        return x, y
 
     def __len__(self):
         return len(self.x)
