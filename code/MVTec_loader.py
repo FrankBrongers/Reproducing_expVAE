@@ -44,7 +44,8 @@ class MVTecDataset(Dataset):
                                         T.CenterCrop(cropsize),
                                         T.ToTensor(),
                                         T.Normalize(mean=[0.485, 0.456, 0.406],
-                                                    std=[0.229, 0.224, 0.225])])
+                                                    std=[0.229, 0.224, 0.225])
+                                                    ])
 
         self.transform_mask = T.Compose([T.Resize(resize, Image.NEAREST),
                                          T.CenterCrop(cropsize),
@@ -62,7 +63,8 @@ class MVTecDataset(Dataset):
             mask = Image.open(mask)
             mask = self.transform_mask(mask)
 
-        return x, y, mask
+        # return x, y, mask
+        return x, y
 
     def __len__(self):
         return len(self.x)

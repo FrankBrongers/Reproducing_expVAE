@@ -16,7 +16,7 @@ from models.resnet18 import ResNet18VAE
 import OneClassMnist
 import Ped1_loader
 import MVTec_loader as mvtec
-
+import matplotlib.pyplot as plt
 
 def loss_function(recon_x, x, mu, logvar, color = False):
     """
@@ -28,8 +28,8 @@ def loss_function(recon_x, x, mu, logvar, color = False):
         log_var - Log standard deviation of the posterior distributions.
     """
     # get batchsize
-    print(recon_x[0])
-    print(torch.max(x), torch.min(x), torch.max(recon_x), torch.min(recon_x),)
+    # print(recon_x[0])
+    # print(torch.max(x), torch.min(x), torch.max(recon_x), torch.min(recon_x),)
     B = recon_x.shape[0]
     nc = x.shape[1]
     # reconstruction loss
@@ -39,7 +39,7 @@ def loss_function(recon_x, x, mu, logvar, color = False):
     BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
 
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    print("bce, kld", BCE, KLD)
+    # print("bce, kld", BCE, KLD)
     return BCE + KLD
 
 
@@ -58,7 +58,6 @@ def train(model, train_loader, optimizer, args):
 
     for batch_idx, (data, _) in enumerate(train_loader):
         data = data.to(device)
-
         optimizer.zero_grad()
         recon_batch, mu, logvar = model(data)
 
