@@ -73,41 +73,45 @@ class GradCAM(PropBase):
                 module[1].register_backward_hook(func_b)
                 module[1].register_forward_hook(func_f)
         
-    def generate_one(self):
+    def generate(self):
         """
-        Generates attention map for 1 image.
+        Generates attention map and all individual maps per latent dimension.
         """
-
-        self.grads = self.get_conv_outputs(
-            self.outputs_backward, self.target_layer)
 
         self.A = self.get_conv_outputs(
             self.outputs_forward, self.target_layer)
 
-        # Kan nu de batches nog niet handlen.
-        A = self.A.squeeze(0)
-        z = self.z.squeeze(0)
-        n, w, h = A.shape
+        b, n, w, h = self.A.shape
 
-        M_list = torch.zeros([z.shape[0], w, h]).cuda()
+        M_list = torch.zeros([self.z.shape[1], b, self.image_size, self.image_size]).cuda()
+        print('Mlist shape', M_list.shape )
+        print('z shape', self.z.shape)
         
-        for i, z_i in enumerate(z):
-            
-            one_hot = torch.zeros_like(z)
-            one_hot[i] = 1
-            z.backward(gradient = one_hot, retain_graph=True)
+        for i, z_i in enumerate(self.z[1]):
+            self.grads = self.get_conv_outputs(self.outputs_backward, self.target_layer)
+
+            one_hot = torch.zeros_like(self.z)
+
+            one_hot[:,i] = 1
+
+            self.z.backward(gradient = one_hot, retain_graph=True)
 
             gradients = self.grads.cpu().data.numpy()[0]
-
             a_k = np.sum(gradients, axis=(1,2)) / (gradients.shape[1] * gradients.shape[2])
 
-            M_i = torch.zeros_like(A[1, :, :])
+            M_i = torch.zeros_like(self.A[:, 1, :, :])
+
             for k in range(n):
-                M_i += F.relu(a_k[k] * A[k, :, :])
-            M_list[i, :, :] += M_i
+                M_i += F.relu(a_k[k] * self.A[:, k, :, :])
+            
+            M_i = M_i.view(M_i.shape[0], 1, M_i.shape[1], M_i.shape[2])
+            M_i = F.interpolate(M_i, (self.image_size, self.image_size),
+                                    mode="bilinear", align_corners=True)
+            M_i = M_i.squeeze(1)
+            M_list[i, :, :, :] += M_i
+            print(M_list.shape)
 
         M = torch.mean(M_list, dim=0)
-
-        #TODO: interpolate/upsample M
+        M = M.squeeze(1)
 
         return M, M_list
