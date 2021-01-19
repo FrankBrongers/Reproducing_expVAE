@@ -8,6 +8,7 @@ import numpy as np
 from models.vanilla import ConvVAE
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
+from models.resnet18_enc_only import ResNet18VAE_2
 
 import OneClassMnist
 import Ped1_loader
@@ -57,7 +58,7 @@ def main(args):
         test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
-        class_name = mvtec.CLASS_NAMES[0]
+        class_name = mvtec.CLASS_NAMES[5]
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
@@ -74,6 +75,10 @@ def main(args):
         target_layer = 'encoder.3'
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
+        # TODO Understand why to choose a specific target layer
+        target_layer = 'encoder.layer4.1.conv2'
+    elif args.model == 'resnet18_2':
+        model = ResNet18VAE_2(args.latent_size, x_dim =256, nc = 3).to(device)
         # TODO Understand why to choose a specific target layer
         target_layer = 'encoder.layer4.1.conv2'
 
@@ -101,10 +106,14 @@ def main(args):
         gcam.backward(mu, logvar, mu_avg, logvar_avg)
         gcam_map = gcam.generate()
 
+        # If image has one channel, make it three channel(need for heatmap)
+        if x.map_size(1) == 1:
+            x = x.repeat(1, 3, 1, 1)
         # Visualize and save attention maps
-        x = x.repeat(1, 3, 1, 1)
         for i in range(x.size(0)):
             raw_image = x[i] * 255.0
+            print("raww",raw_image.size())
+            # ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()[:,:,:3]
             ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()
             im = Image.fromarray(ndarr.astype(np.uint8))
             im_path = args.result_dir
@@ -119,9 +128,9 @@ def main(args):
             save_cam(r_im, file_path, gcam_map[i].squeeze().cpu().data.numpy())
             test_index += 1
 
-        print(batch_idx)
-        if batch_idx == steps:
-            return
+        # print(batch_idx)
+        # if batch_idx == steps:
+        #     return
 
 
 if __name__ == '__main__':

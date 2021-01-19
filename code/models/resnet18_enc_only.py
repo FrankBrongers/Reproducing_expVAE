@@ -279,8 +279,8 @@ class ResNet18VAE_2(nn.Module):
     def __init__(self, z_dim, x_dim =28, nc = 3):
         super().__init__()
         self.encoder = ResNet18Enc(z_dim=z_dim, x_dim=x_dim, nc=nc)
-        # self.decoder = ResNet18Dec(z_dim=z_dim, x_dim=x_dim, nc=nc)
-        self.decoder = vanilla_decoder(z_dim=z_dim, x_dim=x_dim, nc=nc)
+        self.decoder = ResNet18Dec(z_dim=z_dim, x_dim=x_dim, nc=nc)
+        # self.decoder = vanilla_decoder(z_dim=z_dim, x_dim=x_dim, nc=nc)
     def forward(self, x):
         mean, logvar = self.encoder(x)
         z = self.reparameterize(mean, logvar)

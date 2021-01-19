@@ -20,7 +20,7 @@ import Ped1_loader
 import MVTec_loader as mvtec
 import matplotlib.pyplot as plt
 
-def loss_function(recon_x, x, mu, logvar, color = False):
+def loss_function(recon_x, x, mu, logvar):
     """
     Calculates the reconstruction (binary cross entropy) and regularization (KLD) losses to form the total loss of the VAE.
     Inputs:
@@ -30,10 +30,14 @@ def loss_function(recon_x, x, mu, logvar, color = False):
         log_var - Log standard deviation of the posterior distributions.
     """
     B = recon_x.shape[0]
-    BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
+    rc = recon_x.shape[1]
+    if rc == 1:
+        rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
+    else:
+        rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
 
-    return BCE + KLD
+    return rec_loss + KLD
 
 
 def train(model, train_loader, optimizer, args):
@@ -156,6 +160,7 @@ def main(args):
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15,30], gamma=0.1)
+    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5,10, 15,50], gamma=0.5)
 
     start_epoch = 0
     best_test_loss = np.finfo('f').max
