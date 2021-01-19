@@ -4,7 +4,7 @@ import torch.optim as optim
 from torch.nn import functional as F
 from torchvision import transforms
 from torchvision.utils import save_image
-
+from torchvision.utils import make_grid
 
 import os
 import shutil
@@ -28,15 +28,10 @@ def loss_function(recon_x, x, mu, logvar, color = False):
         mu - Mean of the posterior distributions.
         log_var - Log standard deviation of the posterior distributions.
     """
-    # get batchsize
-    # print(recon_x[0])
-    # x = x + 1
-    # print(torch.max(x), torch.min(x), torch.max(recon_x), torch.min(recon_x),)
     B = recon_x.shape[0]
     BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
-
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
-    # print("bce, kld", BCE, KLD)
+
     return BCE + KLD
 
 
@@ -65,7 +60,7 @@ def train(model, train_loader, optimizer, args):
         loss.backward()
         optimizer.step()
 
-    train_loss /= len(train_loader.dataset)
+    train_loss /= len(train_loader.dataset)/args.batch_size
     return train_loss
 
 
@@ -87,7 +82,7 @@ def test(model, test_loader, args):
             recon_batch, mu, logvar = model(data)
 
             test_loss += loss_function(recon_batch, data, mu, logvar).item()
-    test_loss /= len(test_loader.dataset)
+    test_loss /= len(test_loader.dataset)/args.batch_size
     return test_loss
 
 
@@ -106,7 +101,9 @@ def save_checkpoint(state, is_best, outdir):
     torch.save(state, checkpoint_file)
     if is_best:
         shutil.copyfile(checkpoint_file, best_file)
-
+# def show(img):
+#     npimg = img.numpy()
+#     plt.imshow(np.transpose(npimg, (1,2,0)), interpolation='nearest')
 
 def main(args):
     """
@@ -175,6 +172,17 @@ def main(args):
 
     # Training and testing
     for epoch in range(start_epoch, args.epochs):
+
+        if args.vae_testsave == True:
+            with torch.no_grad():
+                save_dir = os.path.join('./',args.result_dir)
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
+                testim =  next(iter(train_loader))[0][0][None,:].to(device)
+                gen_testim = model(testim)[0]
+                combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()],  padding=100)
+                save_image(combi.cpu(), os.path.join(save_dir,"combi_"+ str(epoch) + '.png'))
+
         train_loss = train(model, train_loader, optimizer, args)
         test_loss = test(model, test_loader,args)
 
@@ -240,7 +248,8 @@ if __name__ == '__main__':
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--one_class', type=int, default=1, metavar='N',
                         help='inlier digit for one-class VAE training')
-
+    parser.add_argument('--vae_testsave', type=bool, default=False,
+                        help='save input output image of VAE during training')
     args = parser.parse_args()
 
     main(args)
