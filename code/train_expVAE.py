@@ -40,7 +40,7 @@ def loss_function(recon_x, x, mu, logvar, color = False):
     return BCE + KLD
 
 
-def train(model, train_loader, optimizer, scheduler, args):
+def train(model, train_loader, optimizer, args):
     """
     Function for training a model on a dataset. Train for one epoch.
     Inputs:
@@ -55,6 +55,7 @@ def train(model, train_loader, optimizer, scheduler, args):
 
     for batch_idx, (data, _) in enumerate(train_loader):
         data = data.to(device)
+
         optimizer.zero_grad()
         recon_batch, mu, logvar = model(data)
 
@@ -63,7 +64,6 @@ def train(model, train_loader, optimizer, scheduler, args):
 
         loss.backward()
         optimizer.step()
-        scheduler.step()
 
     train_loss /= len(train_loader.dataset)
     return train_loss
@@ -84,9 +84,6 @@ def test(model, test_loader, args):
     with torch.no_grad():
         for batch_idx, (data, _) in enumerate(test_loader):
             data = data.to(device)
-            # newdat = np.array(data[0].cpu()).T
-            # plt.imshow(newdat,  cmap='gray')
-            # plt.show()
             recon_batch, mu, logvar = model(data)
 
             test_loss += loss_function(recon_batch, data, mu, logvar).item()
@@ -156,9 +153,9 @@ def main(args):
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
 
-    # Create optimizer
-    optimizer = optim.Adam(model.parameters(), lr = args.learning_rate)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+    # Create optimizer and scheduler
+    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15,30], gamma=0.1)
 
     start_epoch = 0
     best_test_loss = np.finfo('f').max
@@ -178,10 +175,11 @@ def main(args):
 
     # Training and testing
     for epoch in range(start_epoch, args.epochs):
-        train_loss = train(model, train_loader, optimizer, scheduler, args)
+        train_loss = train(model, train_loader, optimizer, args)
         test_loss = test(model, test_loader,args)
 
         print('Epoch [%d/%d] loss: %.3f val_loss: %.3f' % (epoch + 1, args.epochs, train_loss, test_loss))
+        print(f"Lr: {optimizer.param_groups[0]['lr']}")
 
         # Check if model is good enough for checkpoint to be created
         is_best = test_loss < best_test_loss
@@ -199,14 +197,12 @@ def main(args):
             sample = torch.randn(64, args.latent_size).to(device)
             sample = model.decode(sample).cpu()
 
-            # Normalize output images
-            sample = sample - torch.min(sample)
-            sample = sample / torch.max(sample)
-
             save_dir = os.path.join('./',args.result_dir)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
             save_image(sample.view(imshape), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
+
+        scheduler.step()
 
 if __name__ == '__main__':
 
@@ -226,7 +222,7 @@ if __name__ == '__main__':
                         help='input batch size for training (default: 128)')
     parser.add_argument('--learning_rate', default=1e-3, type=float,
                         help='Learning rate to use')
-    parser.add_argument('--epochs', type=int, default=100, metavar='N',
+    parser.add_argument('--epochs', type=int, default=40, metavar='N',
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
