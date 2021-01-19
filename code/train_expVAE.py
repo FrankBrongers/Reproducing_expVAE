@@ -13,6 +13,7 @@ import numpy as np
 from models.vanilla import ConvVAE
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
+from models.resnet18_enc_only import ResNet18VAE_2
 
 import OneClassMnist
 import Ped1_loader
@@ -149,6 +150,8 @@ def main(args):
         model = ConvVAE_ped1(args.latent_size).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
+    elif args.model == 'resnet18_2':
+        model = ResNet18VAE_2(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
 
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
