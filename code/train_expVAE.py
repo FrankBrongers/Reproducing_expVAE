@@ -17,7 +17,7 @@ from models.resnet18 import ResNet18VAE
 import OneClassMnist
 import Ped1_loader
 import MVTec_loader as mvtec
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 def loss_function(recon_x, x, mu, logvar, color = False):
     """
