@@ -159,8 +159,8 @@ def main(args):
 
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15,30], gamma=0.1)
-    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5,10, 15,50], gamma=0.5)
+    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[1500], gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5,10, 15,50], gamma=0.5)
 
     start_epoch = 0
     best_test_loss = np.finfo('f').max

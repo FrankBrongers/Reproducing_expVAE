@@ -76,11 +76,11 @@ def main(args):
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
         # TODO Understand why to choose a specific target layer
-        target_layer = 'encoder.layer4.1.conv2'
+        target_layer = 'encoder.layer4.1.conv1'
     elif args.model == 'resnet18_2':
         model = ResNet18VAE_2(args.latent_size, x_dim =256, nc = 3).to(device)
         # TODO Understand why to choose a specific target layer
-        target_layer = 'encoder.layer4.1.conv2'
+        target_layer = 'encoder.layer1.1.conv1'
 
     # Load model
     checkpoint = torch.load(args.model_path)
@@ -107,7 +107,7 @@ def main(args):
         gcam_map = gcam.generate()
 
         # If image has one channel, make it three channel(need for heatmap)
-        if x.map_size(1) == 1:
+        if x.size(1) == 1:
             x = x.repeat(1, 3, 1, 1)
         # Visualize and save attention maps
         for i in range(x.size(0)):
