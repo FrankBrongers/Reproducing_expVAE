@@ -70,7 +70,7 @@ class ConvVAE_ped1(nn.Module):
             nn.ReLU(),
             nn.Linear(1024, 36864),
             nn.ReLU(),
-            Unflatten(128, 12, 12),
+            Unflatten(256, 12, 12),
             nn.ReLU(),
             nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
             nn.ReLU(),
