@@ -98,7 +98,6 @@ def main(args):
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
-    print("model is", model)
     mu_avg, logvar_avg = 0, 1
     gcam = GradCAM(model, target_layer=target_layer, device= device)
     test_index=0
@@ -119,7 +118,7 @@ def main(args):
         # Visualize and save attention maps
         for i in range(x.size(0)):
             raw_image = x[i] * 255.0
-            print("raww",raw_image.size())
+
             # ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()[:,:,:3]
             ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()
             im = Image.fromarray(ndarr.astype(np.uint8))
@@ -153,7 +152,7 @@ def main(args):
         test_index += 1
 
         # Stop parameter
-        if batch_idx == steps:
+        if batch_idx == test_steps:
             print("Reached the maximum number of steps")
             break
 
