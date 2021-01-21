@@ -85,7 +85,7 @@ def main(args):
         target_layer = 'encoder.2'
     elif args.model == 'vanilla_ped1':
         model = ConvVAE_ped1(args.latent_size).to(device)
-        target_layer = 'encoder.3'
+        target_layer = args.target
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
         # TODO Understand why to choose a specific target layer
@@ -221,6 +221,10 @@ if __name__ == '__main__':
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--one_class', type=int, default=7, metavar='N',
                         help='inlier digit for one-class VAE training')
+
+    # AUROC parameters
+    parser.add_argument('--target', type=str, default='--encoder.1',
+                        help='select a target layer for generating the attention map.')
 
     args = parser.parse_args()
 
