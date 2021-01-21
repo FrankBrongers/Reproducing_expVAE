@@ -159,11 +159,11 @@ def main(args):
 
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[1500], gamma=0.1)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5,10, 15,50], gamma=0.5)
+    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40, 90], gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 20,50, 80, 150], gamma=0.5)
 
     start_epoch = 0
-    best_test_loss = np.finfo('f').max
+    best_train_loss = np.finfo('f').max
 
     # Optionally resume from a checkpoint
     if args.resume:
@@ -171,7 +171,7 @@ def main(args):
             print('=> loading checkpoint %s' % args.resume)
             checkpoint = torch.load(args.resume)
             start_epoch = checkpoint['epoch'] + 1
-            best_test_loss = checkpoint['best_test_loss']
+            best_train_loss = checkpoint['best_train_loss']
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
             print('=> loaded checkpoint %s' % args.resume)
@@ -198,11 +198,11 @@ def main(args):
         print(f"Lr: {optimizer.param_groups[0]['lr']}")
 
         # Check if model is good enough for checkpoint to be created
-        is_best = test_loss < best_test_loss
-        best_test_loss = min(test_loss, best_test_loss)
+        is_best = train_loss < best_train_loss
+        best_train_loss = min(train_loss, best_train_loss)
         save_checkpoint({
             'epoch': epoch,
-            'best_test_loss': best_test_loss,
+            'best_train_loss': best_train_loss,
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
             'model' : args.model,
