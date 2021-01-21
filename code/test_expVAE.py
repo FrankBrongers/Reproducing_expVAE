@@ -49,7 +49,7 @@ def save_cam(image, filename, gcam):
     # print(np.min(gcam), np.max(gcam))
 
     gcam = np.uint8(im_gcam)
-    cv2.imwrite(filename, im_gcam)
+    # cv2.imwrite(filename, im_gcam) # Uncomment to save the images
     return gcam
 
 def main(args):
