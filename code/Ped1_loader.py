@@ -5,7 +5,9 @@ import os
 import torchvision.transforms as transforms
 import numpy as np
 
-
+"""
+Based on https://github.com/maksimbolonkin/video_anomaly_detection_pytorch/blob/master/ucsd_dataset.py
+"""
 
 class UCSDAnomalyDataset(data.Dataset):
     def __init__(self, root_path='./data', train=True, resize=96):
@@ -59,7 +61,9 @@ class UCSDAnomalyDataset(data.Dataset):
         self.pil_transform = transforms.Compose([
                     transforms.Resize((resize, resize)),
                     transforms.Grayscale(),
-                    transforms.ToTensor()])
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=(0.3750352255196134,), std=(0.20129592430286292,))]
+                    )
 
 
     def __getitem__(self, index):
