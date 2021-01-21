@@ -1,9 +1,11 @@
 import argparse
 import torch
 from torchvision import datasets, transforms
+from sklearn import metrics
 
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 from models.vanilla import ConvVAE
 from models.vanilla_ped1 import ConvVAE_ped1
@@ -19,6 +21,11 @@ import cv2
 from PIL import Image
 from torchvision.utils import save_image, make_grid
 
+# Initialize AUROC parameters
+test_steps = 1800 # Choose a very high number to test the whole dataset
+score_range = 50 # How many threshold do you want to test?
+scores = np.zeros((score_range, 4)) # TP, TN, FP, FN
+plot_ROC = True # Plot the ROC curve or not
 
 def save_cam(image, filename, gcam):
     """
@@ -28,16 +35,22 @@ def save_cam(image, filename, gcam):
         filename - name of to be saved file
         gcam - generated attention map of image
     """
-    gcam = gcam - np.min(gcam)
-    gcam = gcam / np.max(gcam)
+    gcam = gcam - np.min(gcam) # With norm
+    gcam = gcam / np.max(gcam) # With norm
+    # gcam = gcam / 1.5 # Without norm
+
     h, w, d = image.shape
     gcam = cv2.resize(gcam, (w, h))
     gcam = cv2.applyColorMap(np.uint8(255 * gcam), cv2.COLORMAP_JET)
-    gcam = np.asarray(gcam, dtype=np.float) + \
+    im_gcam = np.asarray(gcam, dtype=np.float) + \
         np.asarray(image, dtype=np.float)
-    gcam = 255 * gcam / np.max(gcam)
-    gcam = np.uint8(gcam)
-    cv2.imwrite(filename, gcam)
+    gcam = 255 * gcam / np.max(gcam) # With norm
+    # im_gcam = im_gcam / 2 # Without norm
+    # print(np.min(gcam), np.max(gcam))
+
+    gcam = np.uint8(im_gcam)
+    cv2.imwrite(filename, im_gcam)
+    return gcam
 
 def main(args):
     """
@@ -90,14 +103,8 @@ def main(args):
     gcam = GradCAM(model, target_layer=target_layer, device= device)
     test_index=0
 
-    # Compute AUROC score
-    for batch_idx, (x, y) in enumerate(test_loader):
-        pass
-
-    steps = 1
-
     # Generate attention maps
-    for batch_idx, (x, _) in enumerate(test_loader):
+    for batch_idx, (x, y) in enumerate(test_loader):
         model.eval()
         x = x.to(device)
         x_rec, mu, logvar = gcam.forward(x)
@@ -125,12 +132,66 @@ def main(args):
             file_path = os.path.join(im_path,
                                  "{}-{}-attmap.png".format(test_index, str(one_class)))
             r_im = np.asarray(im)
-            save_cam(r_im, file_path, gcam_map[i].squeeze().cpu().data.numpy())
-            test_index += 1
+            pred = save_cam(r_im, file_path, gcam_map[i].squeeze().cpu().data.numpy())
 
-        # print(batch_idx)
-        # if batch_idx == steps:
-        #     return
+            # Compute batch scores
+            for j, score in enumerate(scores):
+
+                threshold = j / score_range
+
+                # Apply the threshold
+                pred_bin = ((pred[:,:,0] / 255) > threshold).astype(int)
+                gt_mask = y[i,:,:,:].numpy().astype(int)         
+
+                TP = np.sum((pred_bin + gt_mask) == 2)
+                TN = np.sum((pred_bin + gt_mask) == 0)
+
+                FP = np.sum((gt_mask - pred_bin) == -1)
+                FN = np.sum((pred_bin - gt_mask) == -1)
+
+                scores[j] += np.array([TP, TN, FP, FN])
+        test_index += 1
+
+        # Stop parameter
+        if batch_idx == steps:
+            print("Reached the maximum number of steps")
+            break
+
+    # Compute AUROC
+    TPR_list = []
+    FPR_list = []
+    half_list_x = []
+    half_list_y = []
+    # best_threshold_score = -np.inf
+    best_threshold_idx = 0
+
+    for i, score in enumerate(scores):
+        TP, TN, FP, FN = (score[0], score[1], score[2], score[3])
+
+        TPR = TP / (TP + FN)
+        FPR = FP / (FP + TN)
+
+        TPR_list.append(TPR)
+        FPR_list.append(FPR)
+
+        half_list_x.append(i / score_range)
+        half_list_y.append(i / score_range)
+
+        # Check if current threshold is the best
+        if (TPR - FPR) > (TPR_list[best_threshold_idx] - FPR_list[best_threshold_idx]):
+            best_threshold_idx = i
+
+    print(f"AUC: {metrics.auc(FPR_list, TPR_list)} Best threshold: {best_threshold_idx / score_range}")
+
+    if plot_ROC:
+        plt.plot(FPR_list, TPR_list, label="ROC")
+        plt.plot(half_list_x, half_list_y, '--')
+        plt.scatter(FPR_list[best_threshold_idx], TPR_list[best_threshold_idx])
+        plt.xlabel("FPR")
+        plt.ylabel("TPR")
+        plt.legend()
+        plt.show()
+    return
 
 
 if __name__ == '__main__':
@@ -141,7 +202,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Explainable VAE')
     parser.add_argument('--result_dir', type=str, default='test_results', metavar='DIR',
                         help='output directory')
-    parser.add_argument('--batch_size', type=int, default=1, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=4, metavar='N',
                         help='input batch size for training (default: 128)')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')

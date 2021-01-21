@@ -3,11 +3,12 @@ import torch
 import torch.utils.data as data
 import os
 import torchvision.transforms as transforms
+import numpy as np
 
 
 
 class UCSDAnomalyDataset(data.Dataset):
-    def __init__(self, root_path='./data', train=True, resize=100):
+    def __init__(self, root_path='./data', train=True, resize=96):
         super(UCSDAnomalyDataset, self).__init__()
 
         if train:
@@ -26,6 +27,9 @@ class UCSDAnomalyDataset(data.Dataset):
             else:
                 y_dirs.append(None)
 
+
+
+                
         self.x_samples = []
         self.y_samples = []
 
@@ -39,6 +43,18 @@ class UCSDAnomalyDataset(data.Dataset):
                     self.y_samples.append(os.path.join(self.root_dir, y_d, '{0:03d}.bmp'.format((i))))
                 else:
                     self.y_samples.append(None)
+
+
+        # uncomment to print counts
+        # c = 0        
+        # nc = 0
+        # for d in self.y_samples:
+        #     if d:
+        #         c += 1
+        #     else:
+                
+        #         nc += 1
+        # print(c, nc)
 
         self.pil_transform = transforms.Compose([
                     transforms.Resize((resize, resize)),
@@ -55,8 +71,9 @@ class UCSDAnomalyDataset(data.Dataset):
         # Get y
         if self.y_samples[index]:
             with open(self.y_samples[index], 'rb') as file:
-                y_frame = Image.open(file).convert('RGB')
+                y_frame = Image.open(file)
                 y_frame = self.pil_transform(y_frame)
+
         else:
             y_frame = torch.zeros_like(x_frame)
 
@@ -73,7 +90,17 @@ if __name__ == "__main__":
     dataset = UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False)
     print(f"Dataset length: {dataset.__len__()}")
 
+    labels = 0
+
     for i in range(0, 7199):
         I = dataset.__getitem__(i)
-        if i % 1000 == 0:
+
+        if I[1].max() > 0.5:
+            labels += 1
+
+
+        if i % 200 == 0:
+            print(I[1].unique())
             print(i, I[0].shape, I[1].shape)
+
+    print(labels)
