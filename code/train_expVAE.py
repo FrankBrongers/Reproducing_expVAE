@@ -4,7 +4,7 @@ import torch.optim as optim
 from torch.nn import functional as F
 from torchvision import transforms
 from torchvision.utils import save_image
-
+from torchvision.utils import make_grid
 
 import os
 import shutil
@@ -13,13 +13,14 @@ import numpy as np
 from models.vanilla import ConvVAE
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
+from models.resnet18_enc_only import ResNet18VAE_2
 
 import OneClassMnist
 import Ped1_loader
 import MVTec_loader as mvtec
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
-def loss_function(recon_x, x, mu, logvar, color = False):
+def loss_function(recon_x, x, mu, logvar):
     """
     Calculates the reconstruction (binary cross entropy) and regularization (KLD) losses to form the total loss of the VAE.
     Inputs:
@@ -28,16 +29,15 @@ def loss_function(recon_x, x, mu, logvar, color = False):
         mu - Mean of the posterior distributions.
         log_var - Log standard deviation of the posterior distributions.
     """
-    # get batchsize
-    # print(recon_x[0])
-    # x = x + 1
-    # print(torch.max(x), torch.min(x), torch.max(recon_x), torch.min(recon_x),)
     B = recon_x.shape[0]
-    BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
-
+    rc = recon_x.shape[1]
+    if rc == 1:
+        rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
+    else:
+        rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
 
-    return BCE + KLD
+    return rec_loss + KLD
 
 
 def train(model, train_loader, optimizer, args):
@@ -65,7 +65,7 @@ def train(model, train_loader, optimizer, args):
         loss.backward()
         optimizer.step()
 
-    train_loss /= len(train_loader.dataset)
+    train_loss /= len(train_loader.dataset)/args.batch_size
     return train_loss
 
 
@@ -87,7 +87,7 @@ def test(model, test_loader, args):
             recon_batch, mu, logvar = model(data)
 
             test_loss += loss_function(recon_batch, data, mu, logvar).item()
-    test_loss /= len(test_loader.dataset)
+    test_loss /= len(test_loader.dataset)/args.batch_size
     return test_loss
 
 
@@ -106,7 +106,9 @@ def save_checkpoint(state, is_best, outdir):
     torch.save(state, checkpoint_file)
     if is_best:
         shutil.copyfile(checkpoint_file, best_file)
-
+# def show(img):
+#     npimg = img.numpy()
+#     plt.imshow(np.transpose(npimg, (1,2,0)), interpolation='nearest')
 
 def main(args):
     """
@@ -152,10 +154,13 @@ def main(args):
         model = ConvVAE_ped1(args.latent_size).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
+    elif args.model == 'resnet18_2':
+        model = ResNet18VAE_2(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
 
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[15,30], gamma=0.1)
+    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[1500], gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5,10, 15,50], gamma=0.5)
 
     start_epoch = 0
     best_test_loss = np.finfo('f').max
@@ -175,6 +180,17 @@ def main(args):
 
     # Training and testing
     for epoch in range(start_epoch, args.epochs):
+
+        if args.vae_testsave == True:
+            with torch.no_grad():
+                save_dir = os.path.join('./',args.result_dir)
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
+                testim =  next(iter(train_loader))[0][0][None,:].to(device)
+                gen_testim = model(testim)[0]
+                combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()],  padding=100)
+                save_image(combi.cpu(), os.path.join(save_dir,"combi_"+ str(epoch) + '.png'))
+
         train_loss = train(model, train_loader, optimizer, args)
         test_loss = test(model, test_loader,args)
 
@@ -240,7 +256,8 @@ if __name__ == '__main__':
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--one_class', type=int, default=1, metavar='N',
                         help='inlier digit for one-class VAE training')
-
+    parser.add_argument('--vae_testsave', type=bool, default=False,
+                        help='save input output image of VAE during training')
     args = parser.parse_args()
 
     main(args)
