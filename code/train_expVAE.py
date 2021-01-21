@@ -36,7 +36,7 @@ def loss_function(recon_x, x, mu, logvar, color = False):
     BCE = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
 
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
-    # print("bce, kld", BCE, KLD)
+
     return BCE + KLD
 
 
@@ -127,9 +127,9 @@ def main(args):
         train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
         test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
-        imshape = [64, 1, 100, 100]
-        train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=100)
-        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
+        imshape = [64, 1, 96, 96]
+        train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=96)
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=96)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         imshape = [64, 3, 256, 256 ]
