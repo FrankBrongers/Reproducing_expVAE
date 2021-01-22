@@ -81,22 +81,20 @@ class GradCAM(PropBase):
         self.A = self.get_conv_outputs(
             self.outputs_forward, self.target_layer)
 
+        self.model.zero_grad()
+
         b, n, w, h = self.A.shape
 
         M_list = torch.zeros([self.z.shape[1], b, self.image_size, self.image_size]).cuda()
-        print('Mlist shape', M_list.shape )
-        print('z shape', self.z.shape)
         
         for i, z_i in enumerate(self.z[1]):
-            self.grads = self.get_conv_outputs(self.outputs_backward, self.target_layer)
-
             one_hot = torch.zeros_like(self.z)
-
             one_hot[:,i] = 1
-
             self.z.backward(gradient = one_hot, retain_graph=True)
 
+            self.grads = self.get_conv_outputs(self.outputs_backward, self.target_layer)
             gradients = self.grads.cpu().data.numpy()[0]
+            
             a_k = np.sum(gradients, axis=(1,2)) / (gradients.shape[1] * gradients.shape[2])
 
             M_i = torch.zeros_like(self.A[:, 1, :, :])
