@@ -49,7 +49,7 @@ def save_cam(image, filename, gcam):
     # print(np.min(gcam), np.max(gcam))
 
     gcam = np.uint8(im_gcam)
-    cv2.imwrite(filename, im_gcam)
+    # cv2.imwrite(filename, im_gcam) # Uncomment to save the images
     return gcam
 
 def main(args):
@@ -85,7 +85,7 @@ def main(args):
         target_layer = 'encoder.2'
     elif args.model == 'vanilla_ped1':
         model = ConvVAE_ped1(args.latent_size).to(device)
-        target_layer = 'encoder.3'
+        target_layer = args.target
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
         # TODO Understand why to choose a specific target layer
@@ -101,14 +101,13 @@ def main(args):
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
-    # print("model is", model)
     mu_avg, logvar_avg = 0, 1
     gcam = GradCAM(model, target_layer=target_layer, device= device)
     test_index=0
 
     # Generate attention maps
     for batch_idx, (x, y) in enumerate(test_loader):
-        print("batch_idx", batch_idx)
+        # print("batch_idx", batch_idx)
         model.eval()
         x = x.to(device)
         x_rec, mu, logvar = gcam.forward(x)
@@ -123,7 +122,7 @@ def main(args):
         # Visualize and save attention maps
         for i in range(x.size(0)):
             raw_image = x[i] * 255.0
-            # print("raww",raw_image.size())
+
             # ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()[:,:,:3]
             ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()
             im = Image.fromarray(ndarr.astype(np.uint8))
@@ -194,7 +193,7 @@ def main(args):
         plt.xlabel("FPR")
         plt.ylabel("TPR")
         plt.legend()
-        plt.savefig("./test_results/auroc_" + str(args.target_layer)+ ".png")
+        plt.savefig("./test_results/auroc_" + str(target_layer)+ ".png")
         # plt.show()
     return
 
@@ -227,8 +226,11 @@ if __name__ == '__main__':
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--one_class', type=int, default=7, metavar='N',
                         help='inlier digit for one-class VAE training')
-    parser.add_argument('--target_layer', type=str, default='False',
-                        help='select the targe layer')
+
+    # AUROC parameters
+    parser.add_argument('--target', type=str, default='--encoder.1',
+                        help='select a target layer for generating the attention map.')
+
     args = parser.parse_args()
 
     main(args)
