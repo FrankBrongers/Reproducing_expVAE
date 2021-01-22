@@ -94,17 +94,21 @@ def main(args):
         model = ResNet18VAE_2(args.latent_size, x_dim =256, nc = 3).to(device)
         # TODO Understand why to choose a specific target layer
         target_layer = 'encoder.layer1.1.conv1'
+        if args.target_layer != str(False):
+            print("layer iss: ", args.target_layer)
+            target_layer = args.target_layer
 
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
-    print("model is", model)
+    # print("model is", model)
     mu_avg, logvar_avg = 0, 1
     gcam = GradCAM(model, target_layer=target_layer, device= device)
     test_index=0
 
     # Generate attention maps
     for batch_idx, (x, y) in enumerate(test_loader):
+        print("batch_idx", batch_idx)
         model.eval()
         x = x.to(device)
         x_rec, mu, logvar = gcam.forward(x)
@@ -119,7 +123,7 @@ def main(args):
         # Visualize and save attention maps
         for i in range(x.size(0)):
             raw_image = x[i] * 255.0
-            print("raww",raw_image.size())
+            # print("raww",raw_image.size())
             # ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()[:,:,:3]
             ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()
             im = Image.fromarray(ndarr.astype(np.uint8))
@@ -141,19 +145,19 @@ def main(args):
 
                 # Apply the threshold
                 pred_bin = ((pred[:,:,0] / 255) > threshold).astype(int)
-                gt_mask = y[i,:,:,:].numpy().astype(int)         
+                gt_mask = y[i,:,:,:].numpy().astype(int)
 
                 TP = np.sum((pred_bin + gt_mask) == 2)
                 TN = np.sum((pred_bin + gt_mask) == 0)
 
                 FP = np.sum((gt_mask - pred_bin) == -1)
                 FN = np.sum((pred_bin - gt_mask) == -1)
-
+                # print(np.array([TP, TN, FP, FN]))
                 scores[j] += np.array([TP, TN, FP, FN])
-        test_index += 1
+                test_index += 1
 
         # Stop parameter
-        if batch_idx == steps:
+        if batch_idx == test_steps:
             print("Reached the maximum number of steps")
             break
 
@@ -190,7 +194,8 @@ def main(args):
         plt.xlabel("FPR")
         plt.ylabel("TPR")
         plt.legend()
-        plt.show()
+        plt.savefig("./test_results/auroc_" + str(args.target_layer)+ ".png")
+        # plt.show()
     return
 
 
@@ -222,7 +227,8 @@ if __name__ == '__main__':
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--one_class', type=int, default=7, metavar='N',
                         help='inlier digit for one-class VAE training')
-
+    parser.add_argument('--target_layer', type=str, default='False',
+                        help='select the targe layer')
     args = parser.parse_args()
 
     main(args)

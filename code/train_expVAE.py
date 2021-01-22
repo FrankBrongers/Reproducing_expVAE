@@ -31,7 +31,8 @@ def loss_function(recon_x, x, mu, logvar):
     """
     B = recon_x.shape[0]
     rc = recon_x.shape[1]
-    if rc == 1:
+    # if rc == 1:
+    if True:
         rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
     else:
         rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
@@ -160,7 +161,7 @@ def main(args):
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40, 90], gamma=0.5)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 20,50, 80, 150], gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[20, 50, 100], gamma=0.5)
 
     start_epoch = 0
     best_train_loss = np.finfo('f').max

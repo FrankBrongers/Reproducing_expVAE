@@ -61,12 +61,13 @@ class MVTecDataset(Dataset):
 
         if y == 0:
             mask = torch.zeros([1, self.cropsize, self.cropsize])
+            # print("y is 0 , mask is",y)
         else:
             mask = Image.open(mask)
             mask = self.transform_mask(mask)
 
         # return x, y, mask
-        return x, y
+        return x, mask
 
     def __len__(self):
         return len(self.x)
