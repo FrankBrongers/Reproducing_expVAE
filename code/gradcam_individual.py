@@ -97,12 +97,7 @@ class GradCAM(PropBase):
             
             a_k = np.sum(gradients, axis=(1,2)) / (gradients.shape[1] * gradients.shape[2])
 
-            M_i = torch.zeros_like(self.A[:, 1, :, :])
-
-            for k in range(n):
-                M_i += F.relu(a_k[k] * self.A[:, k, :, :])
-            
-            M_i = M_i.view(M_i.shape[0], 1, M_i.shape[1], M_i.shape[2])
+            M_i = F.relu(a_k*A).sum(dim=1, keepdim=True)
             M_i = F.interpolate(M_i, (self.image_size, self.image_size),
                                     mode="bilinear", align_corners=True)
             M_i = M_i.squeeze(1)
