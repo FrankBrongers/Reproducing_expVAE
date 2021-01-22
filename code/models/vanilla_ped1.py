@@ -74,7 +74,7 @@ class ConvVAE_ped1(nn.Module):
             nn.ReLU(),
             nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
             nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=0), # padding is 0 because of rounding to 12
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1), # padding is 0 because of rounding to 12
             nn.ReLU(),
             nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1),
             nn.Sigmoid()
