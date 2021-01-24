@@ -38,17 +38,6 @@ def save_cam(image, filename, gcam):
         filename - name of to be saved file
         gcam - generated attention map of image
     """
-    # Save image
-    if save_gcam_image:
-        h, w, d = image.shape
-        save_gcam = cv2.resize(gcam, (w, h))
-        save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
-        save_gcam = np.asarray(save_gcam, dtype=np.float) + \
-            np.asarray(image, dtype=np.float)
-        save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
-        save_gcam = np.uint8(save_gcam)
-        cv2.imwrite(filename, save_gcam) # Uncomment to save the images
-
     # Normalize 
     if norm_gcam_image:
         gcam = gcam - np.min(gcam)
@@ -57,6 +46,19 @@ def save_cam(image, filename, gcam):
         # Divide by a hand-chosen maximum value
         gcam = gcam / 1.5
         gcam = np.clip(gcam, 0.0, 1.0)
+
+    # Save image
+    if save_gcam_image:
+        h, w, d = image.shape
+
+        save_gcam = cv2.resize(gcam, (w, h))
+        save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
+        save_gcam = np.asarray(save_gcam, dtype=np.float) + \
+            np.asarray(image, dtype=np.float)
+        save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
+        # print(np.unique(save_gcam), save_gcam.min(), save_gcam.max())
+        save_gcam = np.uint8(save_gcam)
+        cv2.imwrite(filename, save_gcam) # Uncomment to save the images
     return gcam
 
 def main(args):
@@ -147,8 +149,8 @@ def main(args):
                 threshold = (j + 1) / score_range
 
                 # Apply the threshold
-                pred_bin = (pred < threshold).astype(int)
-                gt_mask = y[i,:,:,:].numpy().astype(int)         
+                pred_bin = ((pred) > threshold).astype(int)
+                gt_mask = y[i,:,:,:].numpy().astype(int) 
 
                 TP = np.sum((pred_bin + gt_mask) == 2)
                 TN = np.sum((pred_bin + gt_mask) == 0)
@@ -231,7 +233,7 @@ if __name__ == '__main__':
                         help='inlier digit for one-class VAE training')
 
     # AUROC parameters
-    parser.add_argument('--target_layer', type=str, default='encoder.2',
+    parser.add_argument('--target_layer', type=str, default='encoder.4',
                         help='select a target layer for generating the attention map.')
 
     args = parser.parse_args()
