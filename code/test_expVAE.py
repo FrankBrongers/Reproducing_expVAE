@@ -35,10 +35,13 @@ def save_cam(image, filename, gcam):
         filename - name of to be saved file
         gcam - generated attention map of image
     """
+    # print(" befoor, just gcam")
+    # plt.imshow(gcam)
+    # plt.show()
     gcam = gcam - np.min(gcam) # With norm
     gcam = gcam / np.max(gcam) # With norm
     # gcam = gcam / 1.5 # Without norm
-
+    norm_gcam = gcam
     h, w, d = image.shape
     gcam = cv2.resize(gcam, (w, h))
     gcam = cv2.applyColorMap(np.uint8(255 * gcam), cv2.COLORMAP_JET)
@@ -49,8 +52,11 @@ def save_cam(image, filename, gcam):
     # print(np.min(gcam), np.max(gcam))
 
     gcam = np.uint8(im_gcam)
-    # cv2.imwrite(filename, im_gcam) # Uncomment to save the images
-    return gcam
+    cv2.imwrite(filename, im_gcam) # Uncomment to save the images
+    # print(" after, suppoed to be color gcam")
+    # plt.imshow(gcam)
+    # plt.show()
+    return norm_gcam
 
 def main(args):
     """
@@ -94,9 +100,9 @@ def main(args):
         model = ResNet18VAE_2(args.latent_size, x_dim =256, nc = 3).to(device)
         # TODO Understand why to choose a specific target layer
         target_layer = 'encoder.layer1.1.conv1'
-        if args.target_layer != str(False):
-            print("layer iss: ", args.target_layer)
-            target_layer = args.target_layer
+        if args.target != str(False):
+            print("layer iss: ", args.target)
+            target_layer = args.target
 
     # Load model
     checkpoint = torch.load(args.model_path)
@@ -118,9 +124,12 @@ def main(args):
 
         # If image has one channel, make it three channel(need for heatmap)
         if x.size(1) == 1:
-            x = x.repeat(1, 3, 1, 1)
+            x = x.repeat(1, 3, 1, 1
+            )
         # Visualize and save attention maps
         for i in range(x.size(0)):
+            # for every image in batch
+
             raw_image = x[i] * 255.0
 
             # ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()[:,:,:3]
@@ -135,17 +144,27 @@ def main(args):
             file_path = os.path.join(im_path,
                                  "{}-{}-attmap.png".format(test_index, str(one_class)))
             r_im = np.asarray(im)
-            pred = save_cam(r_im, file_path, gcam_map[i].squeeze().cpu().data.numpy())
+            pred = gcam_map[i].squeeze().cpu().data.numpy()
+            pred = save_cam(r_im, file_path, pred)
 
-            # Compute batch scores
+            # Compute the correct and incorrect mask scores for all thresholds
             for j, score in enumerate(scores):
 
-                threshold = j / score_range
-
+                threshold = (j + 1) / score_range
+                # threshold =
+                # print("threshooold",threshold)
                 # Apply the threshold
-                pred_bin = ((pred[:,:,0] / 255) > threshold).astype(int)
+                pred_bin = ((pred) > threshold).astype(int)
                 gt_mask = y[i,:,:,:].numpy().astype(int)
-
+                # print("the pred im")
+                # plt.imshow(pred)
+                # plt.show()
+                # print("the binary pred im")
+                # plt.imshow(pred_bin)
+                # plt.show()
+                # print(" the real gt mask")
+                # plt.imshow(gt_mask[0])
+                # plt.show()
                 TP = np.sum((pred_bin + gt_mask) == 2)
                 TN = np.sum((pred_bin + gt_mask) == 0)
 
@@ -153,7 +172,7 @@ def main(args):
                 FN = np.sum((pred_bin - gt_mask) == -1)
                 # print(np.array([TP, TN, FP, FN]))
                 scores[j] += np.array([TP, TN, FP, FN])
-                test_index += 1
+            test_index += 1
 
         # Stop parameter
         if batch_idx == test_steps:
