@@ -1,7 +1,7 @@
 import argparse
 import torch
 from torchvision import datasets, transforms
-from sklearn import metrics
+from sklearn.metrics import roc_curve, auc
 
 import os
 import numpy as np
@@ -38,7 +38,7 @@ def save_cam(image, filename, gcam):
         filename - name of to be saved file
         gcam - generated attention map of image
     """
-    # Normalize 
+    # Normalize
     if norm_gcam_image:
         gcam = gcam - np.min(gcam)
         gcam = gcam / np.max(gcam)
@@ -99,7 +99,7 @@ def main(args):
     elif args.model == 'resnet18_2':
         model = ResNet18VAE_2(args.latent_size, x_dim =256, nc = 3).to(device)
         # TODO Understand why to choose a specific target layer
-
+    print("layer issss", args.target_layer)
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
@@ -150,7 +150,7 @@ def main(args):
 
                 # Apply the threshold
                 pred_bin = ((pred) > threshold).astype(int)
-                gt_mask = y[i,:,:,:].numpy().astype(int) 
+                gt_mask = y[i,:,:,:].numpy().astype(int)
 
                 TP = np.sum((pred_bin + gt_mask) == 2)
                 TN = np.sum((pred_bin + gt_mask) == 0)
@@ -189,7 +189,7 @@ def main(args):
         if (TPR - FPR) > (TPR_list[best_threshold_idx] - FPR_list[best_threshold_idx]):
             best_threshold_idx = i
 
-    print(f"AUC: {metrics.auc(FPR_list, TPR_list)} Best threshold: {best_threshold_idx / score_range}")
+    print(f"AUC: {auc(FPR_list, TPR_list)} Best threshold: {best_threshold_idx / score_range}")
 
     if plot_ROC:
         plt.plot(FPR_list, TPR_list, label="ROC")
