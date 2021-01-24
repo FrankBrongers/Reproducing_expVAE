@@ -58,12 +58,17 @@ class UCSDAnomalyDataset(data.Dataset):
         #         nc += 1
         # print(c, nc)
 
+        # self.pil_transform = transforms.Compose([
+        #             transforms.Resize((resize, resize)),
+        #             transforms.Grayscale(),
+        #             transforms.ToTensor(),
+        #             transforms.Normalize(mean=(0.3750352255196134,), std=(0.20129592430286292,))]
+                    # )
+
         self.pil_transform = transforms.Compose([
                     transforms.Resize((resize, resize)),
                     transforms.Grayscale(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=(0.3750352255196134,), std=(0.20129592430286292,))]
-                    )
+                    transforms.ToTensor()])
 
 
     def __getitem__(self, index):
