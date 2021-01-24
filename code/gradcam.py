@@ -116,16 +116,21 @@ class GradCAM(PropBase):
             self.outputs_forward, self.target_layer)
 
 
-        self.activation = self.activation[None, :, :, :, :]
-        self.weights = self.weights[:, None, :, :, :]
 
         # Compute M_i (I think? Where is the ReLu?
         # Why do they use cross corelation/convolution?)
 
-        gcam = F.conv3d(input=self.activation,
-                        weight=self.weights.to(self.device), padding=0,
-                        groups=len(self.weights))
-        gcam = gcam.squeeze(dim=0)
+        self.alpha = self.weights.to(self.device)        # Leons attempts
+        gcam = self.activation * self.alpha
+        gcam = torch.sum(gcam, dim = 1)[:,None,:,:]
+        gcam = torch.abs(gcam)
+
+        # self.activation = self.activation[None, :, :, :, :]
+        # self.weights = self.weights[:, None, :, :, :]
+        # gcam = F.conv3d(input=self.activation,
+        #                 weight=self.weights.to(self.device), padding=0,
+        #                 groups=len(self.weights))
+        # gcam = gcam.squeeze(dim=0)
         # upsamples through interpolation increases image size
         gcam = F.interpolate(gcam, (self.image_size, self.image_size),
                                 mode="bilinear", align_corners=True)
