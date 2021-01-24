@@ -22,10 +22,10 @@ from PIL import Image
 from torchvision.utils import save_image, make_grid
 
 # Initialize AUROC parameters
-test_steps = 1800 # Choose a very high number to test the whole dataset
+test_steps = 100 # Choose a very high number to test the whole dataset
 score_range = 50 # How many threshold do you want to test?
 scores = np.zeros((score_range, 4)) # TP, TN, FP, FN
-plot_ROC = True # Plot the ROC curve or not
+plot_ROC = False # Plot the ROC curve or not
 
 def save_cam(image, filename, gcam):
     """
@@ -35,21 +35,23 @@ def save_cam(image, filename, gcam):
         filename - name of to be saved file
         gcam - generated attention map of image
     """
-    gcam = gcam - np.min(gcam) # With norm
-    gcam = gcam / np.max(gcam) # With norm
-    # gcam = gcam / 1.5 # Without norm
-
+    # gcam = gcam - np.min(gcam) # With norm
+    # gcam = gcam / np.max(gcam) # With norm
+    # print(gcam.min(), gcam.max())
+    gcam = gcam / 1.5 # Without norm
+# 
     h, w, d = image.shape
-    gcam = cv2.resize(gcam, (w, h))
-    gcam = cv2.applyColorMap(np.uint8(255 * gcam), cv2.COLORMAP_JET)
-    im_gcam = np.asarray(gcam, dtype=np.float) + \
+    im_gcam = cv2.resize(gcam, (w, h))
+    im_gcam = cv2.applyColorMap(np.uint8(255 * im_gcam), cv2.COLORMAP_JET)
+    im_gcam = np.asarray(im_gcam, dtype=np.float) + \
         np.asarray(image, dtype=np.float)
-    gcam = 255 * gcam / np.max(gcam) # With norm
-    # im_gcam = im_gcam / 2 # Without norm
-    # print(np.min(gcam), np.max(gcam))
+    im_gcam = 255 * im_gcam / np.max(im_gcam) # With norm
+    im_gcam = np.uint8(im_gcam)
+    cv2.imwrite(filename, im_gcam) # Uncomment to save the images
 
-    gcam = np.uint8(im_gcam)
-    # cv2.imwrite(filename, im_gcam) # Uncomment to save the images
+    # gcam = 255 * gcam / np.max(gcam) # With norm
+    # print(np.min(im_gcam), np.max(im_gcam))
+
     return gcam
 
 def main(args):
@@ -82,24 +84,20 @@ def main(args):
     # Select a model architecture
     if args.model == 'vanilla':
         model = ConvVAE(args.latent_size).to(device)
-        target_layer = 'encoder.2'
     elif args.model == 'vanilla_ped1':
         model = ConvVAE_ped1(args.latent_size).to(device)
-        target_layer = args.target
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
         # TODO Understand why to choose a specific target layer
-        target_layer = 'encoder.layer4.1.conv1'
     elif args.model == 'resnet18_2':
         model = ResNet18VAE_2(args.latent_size, x_dim =256, nc = 3).to(device)
         # TODO Understand why to choose a specific target layer
-        target_layer = 'encoder.layer1.1.conv1'
 
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
     mu_avg, logvar_avg = 0, 1
-    gcam = GradCAM(model, target_layer=target_layer, device= device)
+    gcam = GradCAM(model, target_layer=args.target_layer, device=device)
     test_index=0
 
     # Generate attention maps
@@ -113,8 +111,8 @@ def main(args):
         gcam_map = gcam.generate()
 
         # If image has one channel, make it three channel(need for heatmap)
-        if x.size(1) == 1:
-            x = x.repeat(1, 3, 1, 1)
+        # if x.size(1) == 1:
+        x = x.repeat(1, 3, 1, 1)
         # Visualize and save attention maps
         for i in range(x.size(0)):
             raw_image = x[i] * 255.0
@@ -136,10 +134,10 @@ def main(args):
             # Compute batch scores
             for j, score in enumerate(scores):
 
-                threshold = j / score_range
+                threshold = (j + 1) / (score_range + 1)
 
                 # Apply the threshold
-                pred_bin = ((pred[:,:,0] / 255) > threshold).astype(int)
+                pred_bin = ((pred / 255) < threshold).astype(int)
                 gt_mask = y[i,:,:,:].numpy().astype(int)         
 
                 TP = np.sum((pred_bin + gt_mask) == 2)
@@ -161,7 +159,6 @@ def main(args):
     FPR_list = []
     half_list_x = []
     half_list_y = []
-    # best_threshold_score = -np.inf
     best_threshold_idx = 0
 
     for i, score in enumerate(scores):
@@ -213,7 +210,7 @@ if __name__ == '__main__':
                         help='select one of the following models: vanilla, vanilla_ped1, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
-    parser.add_argument('--model_path', type=str, default='./ckpt/vanilla_ped1_best.pth', metavar='DIR',
+    parser.add_argument('--model_path', type=str, default='./ckpt/vanilla_ped1_checkpoint.pth', metavar='DIR',
                         help='pretrained model directory')
 
     # Dataset parameters
@@ -223,7 +220,7 @@ if __name__ == '__main__':
                         help='inlier digit for one-class VAE training')
 
     # AUROC parameters
-    parser.add_argument('--target', type=str, default='--encoder.1',
+    parser.add_argument('--target_layer', type=str, default='encoder.2',
                         help='select a target layer for generating the attention map.')
 
     args = parser.parse_args()
