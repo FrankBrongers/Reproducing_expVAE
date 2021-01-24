@@ -124,6 +124,7 @@ class GradCAM(PropBase):
         gcam = self.activation * self.alpha
         gcam = torch.sum(gcam, dim = 1)[:,None,:,:]
         gcam = torch.abs(gcam)
+        # gcam = F.relu(gcam)
 
         # self.activation = self.activation[None, :, :, :, :]
         # self.weights = self.weights[:, None, :, :, :]
@@ -134,7 +135,7 @@ class GradCAM(PropBase):
         # upsamples through interpolation increases image size
         gcam = F.interpolate(gcam, (self.image_size, self.image_size),
                                 mode="bilinear", align_corners=True)
-        gcam = torch.abs(gcam)
+        # gcam = torch.abs(gcam)
         # gcam = F.relu(gcam)
 
         return gcam
