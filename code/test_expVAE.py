@@ -27,8 +27,8 @@ score_range = 50 # How many threshold do you want to test?
 scores = np.zeros((score_range, 4)) # TP, TN, FP, FN
 plot_ROC = False # Plot the ROC curve or not
 
-save_cam_image = True
-norm_cam_image = True
+save_gcam_image = True
+norm_gcam_image = True
 
 def save_cam(image, filename, gcam):
     """
@@ -39,7 +39,7 @@ def save_cam(image, filename, gcam):
         gcam - generated attention map of image
     """
     # Save image
-    if save_cam_image:
+    if save_gcam_image:
         h, w, d = image.shape
         save_gcam = cv2.resize(gcam, (w, h))
         save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
@@ -50,7 +50,7 @@ def save_cam(image, filename, gcam):
         cv2.imwrite(filename, save_gcam) # Uncomment to save the images
 
     # Normalize 
-    if norm_cam_image:
+    if norm_gcam_image:
         gcam = gcam - np.min(gcam)
         gcam = gcam / np.max(gcam)
     else:
@@ -196,7 +196,7 @@ def main(args):
         plt.xlabel("FPR")
         plt.ylabel("TPR")
         plt.legend()
-        plt.savefig("./test_results/auroc_" + str(target_layer)+ ".png")
+        plt.savefig("./test_results/auroc_" + str(args.target_layer)+ ".png")
         # plt.show()
     return
 
