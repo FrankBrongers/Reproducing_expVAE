@@ -37,7 +37,7 @@ class MVTecDataset(Dataset):
             self.transform_x = T.Compose([T.Resize(resize, Image.ANTIALIAS),
                                 T.Grayscale(num_output_channels=1),
                                 T.CenterCrop(cropsize),
-                                T.ToTensor(),
+                                T.ToTensor()
                                 # T.Normalize((0.5), (0.5))
                                 ])
         else:
@@ -47,26 +47,31 @@ class MVTecDataset(Dataset):
                                         # T.Normalize((0.5, 0.5, 0.5),
                                         #             (0.5, 0.5, 0.5))
                                                     ])
-
-
         self.transform_mask = T.Compose([T.Resize(resize, Image.NEAREST),
                                          T.CenterCrop(cropsize),
                                          T.ToTensor()])
 
+        # Random flips and random rotations                     
+        self.augmentation_x = T.Compose([ T.RandomRotation(90),
+                                          T.RandomHorizontalFlip(),
+                                          T.RandomVerticalFlip()])
     def __getitem__(self, idx):
         x, y, mask = self.x[idx], self.y[idx], self.mask[idx]
 
         x = Image.open(x).convert('RGB')
         x = self.transform_x(x)
+        if self.is_train == True:
+            x = self.augmentation_x(x)
 
         if y == 0:
             mask = torch.zeros([1, self.cropsize, self.cropsize])
+            # print("y is 0 , mask is",y)
         else:
             mask = Image.open(mask)
             mask = self.transform_mask(mask)
 
         # return x, y, mask
-        return x, y
+        return x, mask
 
     def __len__(self):
         return len(self.x)
