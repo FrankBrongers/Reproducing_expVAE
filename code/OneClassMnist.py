@@ -36,10 +36,9 @@ class OneMNIST(data.Dataset):
     training_file = 'training.pt'
     test_file = 'test.pt'
 
-    def __init__(self, root, one_class, train=True, transform=None, target_transform=None, download=False):
+    def __init__(self, root, one_class, train=True, transform=None, download=False):
         self.root = os.path.expanduser(root)
         self.transform = transform
-        self.target_transform = target_transform
         self.train = train  # training set or test set
         self.one_class = one_class
 
@@ -84,10 +83,7 @@ class OneMNIST(data.Dataset):
         if self.transform is not None:
             img = self.transform(img)
 
-        if self.target_transform is not None:
-            target = self.target_transform(target)
-
-        return img, target
+        return img, torch.zeros_like(img)
 
     def __len__(self):
         if self.train:
