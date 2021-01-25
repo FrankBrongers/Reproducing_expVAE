@@ -18,6 +18,8 @@ from models.resnet18_2 import ResNet18VAE_2
 import OneClassMnist
 import Ped1_loader
 import MVTec_loader as mvtec
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 def loss_function(recon_x, x, mu, logvar):
