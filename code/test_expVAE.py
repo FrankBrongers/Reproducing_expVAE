@@ -86,7 +86,7 @@ def main(args):
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=args.batch_size, shuffle=False, **kwargs)
+        batch_size=args.batch_size, shuffle=True, **kwargs)
 
     # Select a model architecture
     if args.model == 'vanilla':
