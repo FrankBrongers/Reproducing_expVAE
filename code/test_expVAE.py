@@ -53,8 +53,7 @@ def save_cam(image, filename, gcam):
 
         save_gcam = cv2.resize(gcam, (w, h))
         save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
-        save_gcam = np.asarray(save_gcam, dtype=np.float) + \
-            np.asarray(image, dtype=np.float)
+        save_gcam = np.asarray(save_gcam, dtype=np.float) # + np.asarray(image, dtype=np.float)
         save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
         # print(np.unique(save_gcam), save_gcam.min(), save_gcam.max())
         save_gcam = np.uint8(save_gcam)
@@ -77,7 +76,7 @@ def main(args):
     if args.dataset == 'mnist':
         test_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
-        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=96)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         class_name = mvtec.CLASS_NAMES[5]
@@ -103,7 +102,7 @@ def main(args):
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
-    mu_avg, logvar_avg = 0, 1
+    mu_avg, logvar_avg = (0, 1)
     gcam = GradCAM(model, target_layer=args.target_layer, device=device)
     test_index=0
 
@@ -125,7 +124,6 @@ def main(args):
         # Visualize and save attention maps
         for i in range(x.size(0)):
             # for every image in batch
-
             raw_image = x[i] * 255.0
 
             # ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()[:,:,:3]
@@ -146,7 +144,7 @@ def main(args):
             # Compute the correct and incorrect mask scores for all thresholds
             for j, score in enumerate(scores):
 
-                threshold = (j + 1) / score_range
+                threshold = (j) / (score_range - 1)
 
                 # Apply the threshold
                 pred_bin = ((pred) > threshold).astype(int)
@@ -223,7 +221,7 @@ if __name__ == '__main__':
                         help='select one of the following models: vanilla, vanilla_ped1, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
-    parser.add_argument('--model_path', type=str, default='./ckpt/vanilla_ped1_checkpoint.pth', metavar='DIR',
+    parser.add_argument('--model_path', type=str, default='/media/bob/B.Leijnse/vanilla_ped1_best_100.pth', metavar='DIR',
                         help='pretrained model directory')
 
     # Dataset parameters
