@@ -79,8 +79,7 @@ def test(model, test_loader, args):
     model.eval()
     test_loss = 0
 
-    with torch.no_grad():            if batch_idx == 2:
-                break
+    with torch.no_grad():
         for batch_idx, (data, _) in enumerate(test_loader):
             data = data.to(device)
             recon_batch, mu, logvar = model(data)
