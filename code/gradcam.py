@@ -132,10 +132,9 @@ class GradCAM(PropBase):
         #                 weight=self.weights.to(self.device), padding=0,
         #                 groups=len(self.weights))
         # gcam = gcam.squeeze(dim=0)
+
         # upsamples through interpolation increases image size
         gcam = F.interpolate(gcam, (self.image_size, self.image_size),
                                 mode="bilinear", align_corners=True)
-        # gcam = torch.abs(gcam)
-        # gcam = F.relu(gcam)
 
         return gcam

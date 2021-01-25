@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from models.vanilla import ConvVAE
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
-from models.resnet18_enc_only import ResNet18VAE_2
+from models.resnet18_2 import ResNet18VAE_2
 
 import OneClassMnist
 import Ped1_loader

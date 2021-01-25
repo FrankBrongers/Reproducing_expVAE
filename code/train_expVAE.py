@@ -13,7 +13,7 @@ import numpy as np
 from models.vanilla import ConvVAE
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
-from models.resnet18_enc_only import ResNet18VAE_2
+from models.resnet18_2 import ResNet18VAE_2
 
 import OneClassMnist
 import Ped1_loader
@@ -31,11 +31,8 @@ def loss_function(recon_x, x, mu, logvar):
     """
     B = recon_x.shape[0]
     rc = recon_x.shape[1]
-    # if rc == 1:
-    if True:
-        rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
-    else:
-        rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
+    rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
+        # rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
 
     return rec_loss + KLD
@@ -261,6 +258,7 @@ if __name__ == '__main__':
                         help='save input output image of VAE during training')
     parser.add_argument('--decoder', type=str, default='vanilla',
                         help='only for resnet VAE select one of following: resnet, vanilla')
+
     args = parser.parse_args()
 
     main(args)
