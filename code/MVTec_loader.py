@@ -52,9 +52,11 @@ class MVTecDataset(Dataset):
                                          T.ToTensor()])
 
         # Random flips and random rotations
-        self.augmentation_x = T.Compose([ T.RandomRotation(np.pi/4),
+        self.augmentation_x = T.Compose([ T.ToPILImage(),
+                                          T.RandomRotation(np.pi/4),
                                           T.RandomHorizontalFlip(),
-                                          T.RandomVerticalFlip()])
+                                          T.RandomVerticalFlip(),
+                                          T.ToTensor()])
     def __getitem__(self, idx):
         x, y, mask = self.x[idx], self.y[idx], self.mask[idx]
 
