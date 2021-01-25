@@ -7,7 +7,7 @@ import urllib.request
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms as T
-
+import numpy as np
 
 URL = 'ftp://guest:GU.205dldo@ftp.softronics.ch/mvtec_anomaly_detection/mvtec_anomaly_detection.tar.xz'
 CLASS_NAMES = ['bottle', 'cable', 'capsule', 'carpet', 'grid',
@@ -51,8 +51,8 @@ class MVTecDataset(Dataset):
                                          T.CenterCrop(cropsize),
                                          T.ToTensor()])
 
-        # Random flips and random rotations                     
-        self.augmentation_x = T.Compose([ T.RandomRotation(90),
+        # Random flips and random rotations
+        self.augmentation_x = T.Compose([ T.RandomRotation(np.pi/4),
                                           T.RandomHorizontalFlip(),
                                           T.RandomVerticalFlip()])
     def __getitem__(self, idx):

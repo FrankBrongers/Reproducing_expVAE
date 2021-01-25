@@ -79,17 +79,19 @@ def test(model, test_loader, args):
     model.eval()
     test_loss = 0
 
-    with torch.no_grad():
+    with torch.no_grad():            if batch_idx == 2:
+                break
         for batch_idx, (data, _) in enumerate(test_loader):
             data = data.to(device)
             recon_batch, mu, logvar = model(data)
 
             test_loss += loss_function(recon_batch, data, mu, logvar).item()
+
     test_loss /= len(test_loader.dataset)/args.batch_size
     return test_loss
 
 
-def save_checkpoint(state, is_best, outdir):
+def save_checkpoint(state, is_best, outdir, args):
     """
     Function for saving pytorch model checkpoints.
     Inputs:
@@ -99,7 +101,7 @@ def save_checkpoint(state, is_best, outdir):
     """
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-    checkpoint_file = os.path.join(outdir, f"{state['model']}_checkpoint.pth")
+    checkpoint_file = os.path.join(outdir, f"{state['model']}_"+str(args.decoder) +"_checkpoint.pth")
     best_file = os.path.join(outdir, f"{state['model']}_best.pth")
     torch.save(state, checkpoint_file)
     if is_best:
@@ -158,11 +160,11 @@ def main(args):
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40, 90], gamma=0.5)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[20, 50, 100], gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 80], gamma=0.1)
 
     start_epoch = 0
     best_train_loss = np.finfo('f').max
-
+    losses = []
     # Optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -176,9 +178,9 @@ def main(args):
         else:
             print('=> no checkpoint found at %s' % args.resume)
 
+
     # Training and testing
     for epoch in range(start_epoch, args.epochs):
-
         if args.vae_testsave == True:
             with torch.no_grad():
                 save_dir = os.path.join('./',args.result_dir)
@@ -187,13 +189,18 @@ def main(args):
                 testim =  next(iter(train_loader))[0][0][None,:].to(device)
                 gen_testim = model(testim)[0]
                 combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()],  padding=100)
-                save_image(combi.cpu(), os.path.join(save_dir,"combi_"+ str(epoch) + '.png'))
+                save_image(combi.cpu(), os.path.join(save_dir,str(args.decoder) +"combi_"+ str(epoch) + '.png'))
 
         train_loss = train(model, train_loader, optimizer, args)
         test_loss = test(model, test_loader,args)
 
         print('Epoch [%d/%d] loss: %.3f val_loss: %.3f' % (epoch + 1, args.epochs, train_loss, test_loss))
         print(f"Lr: {optimizer.param_groups[0]['lr']}")
+
+        # save trainloss plot
+        losses.append(train_loss)
+        plt.plot(losses)
+        plt.savefig("./train_results/loss_" + str(args.decoder)+ ".png")
 
         # Check if model is good enough for checkpoint to be created
         is_best = train_loss < best_train_loss
@@ -204,7 +211,7 @@ def main(args):
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
             'model' : args.model,
-        }, is_best, os.path.join('./',args.ckpt_dir))
+        }, is_best, os.path.join('./',args.ckpt_dir), args)
 
         # Visualize sample validation result
         with torch.no_grad():
@@ -214,7 +221,7 @@ def main(args):
             save_dir = os.path.join('./',args.result_dir)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            save_image(sample.view(imshape), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
+            save_image(sample.view(imshape), os.path.join(save_dir,str(args.decoder) +'sample_' + str(epoch) + '.png'))
 
         scheduler.step()
 
