@@ -10,6 +10,9 @@ from torchvision import transforms as T
 import numpy as np
 import matplotlib.pyplot as plt
 
+from torchvision.utils import save_image
+
+
 import cv2
 
 
@@ -65,7 +68,7 @@ class MVTecDataset(Dataset):
 
         # Random flips and random rotations
         self.augmentation_x = T.Compose([ T.ToPILImage(),
-                                          T.RandomRotation(np.pi/4),
+                                          T.RandomRotation(np.pi/6),
                                           T.RandomHorizontalFlip(),
                                           T.RandomVerticalFlip(),
                                           T.ToTensor()])

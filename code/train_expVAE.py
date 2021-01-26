@@ -14,6 +14,9 @@ from models.vanilla import ConvVAE
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 from models.resnet18_2 import ResNet18VAE_2
+from models.resnet18_3 import ResNet18VAE_3
+
+
 
 import OneClassMnist
 import Ped1_loader
@@ -23,16 +26,15 @@ import matplotlib
 import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter
 # Run the folloring command to acces tensorboard: tensorboard --logdir runs
-
 from torchvision import transforms as T
 
 
-def unnormalize(x):
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    inv_normalize = T.Normalize(mean = -mean/std, std = 1/std)
-    unnorm = inv_normalize(x)
-    return unnorm
+# def unnormalize(x):
+#     mean = np.array([0.4305, 0.3999, 0.3900])
+#     std = np.array([0.1822, 0.1733, 0.1624])
+#     inv_normalize = T.Normalize(mean = -mean/std, std = 1/std)
+#     unnorm = inv_normalize(x)
+#     return unnorm
 
 def loss_function(recon_x, x, mu, logvar, ):
     """
@@ -45,9 +47,6 @@ def loss_function(recon_x, x, mu, logvar, ):
     """
     B = recon_x.shape[0]
     rc = recon_x.shape[1]
-    if rc == 3:
-        x = unnormalize(x)
-    # recon_x = unnormalize(recon_x)
     rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
     # rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
@@ -73,6 +72,7 @@ def train(model, train_loader, optimizer, args):
         data = data.to(device)
 
         optimizer.zero_grad()
+
         recon_batch, mu, logvar = model(data)
 
         loss = loss_function(recon_batch, data, mu, logvar)
@@ -172,6 +172,8 @@ def main(args):
         model = ResNet18VAE(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
     elif args.model == 'resnet18_2':
         model = ResNet18VAE_2(args.latent_size, x_dim = imshape[-1], nc = imshape[1], decoder=args.decoder).to(device)
+    elif args.model == 'resnet18_3':
+        model = ResNet18VAE_3(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
 
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
@@ -204,10 +206,6 @@ def main(args):
                     os.makedirs(save_dir)
                 testim =  next(iter(train_loader))[0][0][None,:].to(device)
                 gen_testim = model(testim)[0]
-                if args.dataset == "mvtec_ad":
-
-                    testim = train_dataset.unnormalize(testim)
-                    # gen_testim = train_dataset.unnormalize(gen_testim)
 
                 combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()],  padding=100)
                 save_image(combi.cpu(), os.path.join(save_dir,str(args.decoder) +"combi_"+ str(epoch) + '.png'))
@@ -241,8 +239,6 @@ def main(args):
         with torch.no_grad():
             sample = torch.randn(64, args.latent_size).to(device)
             sample = model.decode(sample).cpu()
-            if args.dataset == "mvtec_ad":
-                sample = train_dataset.unnormalize(sample)
             save_dir = os.path.join('./',args.result_dir)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)

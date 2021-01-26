@@ -139,6 +139,8 @@ dmypy.json
 # Pretrained Models:
 MNIST_model/
 
+# tensorboard runs
+runs/
 # Pyre type checker
 .pyre/
 .vscode/launch.json
