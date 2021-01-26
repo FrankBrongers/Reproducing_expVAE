@@ -21,6 +21,8 @@ import MVTec_loader as mvtec
 import matplotlib
 # matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from tensorboardX import SummaryWriter
+# Run the folloring command to acces tensorboard: tensorboard --logdir runs
 
 from torchvision import transforms as T
 
@@ -128,6 +130,7 @@ def main(args):
         args - Namespace object from the argument parser
     """
     print("Device is", device)
+    writer = SummaryWriter()
 
     # Seed everything
     torch.manual_seed(args.seed)
@@ -210,6 +213,9 @@ def main(args):
 
         train_loss = train(model, train_loader, optimizer, args)
         test_loss = test(model, test_loader,args)
+
+        writer.add_scalar('Train Loss', train_loss, epoch)
+        writer.add_scalar('Test Loss', test_loss, epoch)
 
         print('Epoch [%d/%d] loss: %.3f val_loss: %.3f' % (epoch + 1, args.epochs, train_loss, test_loss))
         print(f"Lr: {optimizer.param_groups[0]['lr']}")
