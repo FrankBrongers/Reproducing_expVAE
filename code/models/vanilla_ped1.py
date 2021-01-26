@@ -50,20 +50,17 @@ class ConvVAE_ped1(nn.Module):
         self.latent_size = latent_size
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, 192, kernel_size=4, stride=2, padding=1),
-            BatchNorm2d(192),
+            nn.Conv2d(1, 64, kernel_size=4, stride=2, padding=1),
             nn.ReLU(),
 
-            nn.Conv2d(192, 144, kernel_size=4, stride=2, padding=1),
-            BatchNorm2d(144),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
             nn.ReLU(),
 
-            nn.Conv2d(144, 96, kernel_size=4, stride=2, padding=1),
-            BatchNorm2d(96),
+            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
             nn.ReLU(),
             
             Flatten(),
-            nn.Linear(13824, 1024),
+            nn.Linear(36864, 1024),
             nn.ReLU()
         )
 
@@ -76,21 +73,18 @@ class ConvVAE_ped1(nn.Module):
         self.decoder = nn.Sequential(
             nn.Linear(self.latent_size, 1024),
             nn.ReLU(),
-            nn.Linear(1024, 13824),
+            nn.Linear(1024, 36864),
             nn.ReLU(),
-            Unflatten(96, 12, 12),
+            Unflatten(256, 12, 12),
 
             nn.ReLU(),
-            BatchNorm2d(96),
-            nn.ConvTranspose2d(96, 144, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(256, 128, kernel_size=5, stride=2, padding=1),
 
             nn.ReLU(),
-            BatchNorm2d(144),
-            nn.ConvTranspose2d(144, 192, kernel_size=4, stride=2, padding=1), # padding is 0 because of rounding to 12
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
             
             nn.ReLU(),
-            BatchNorm2d(192),
-            nn.ConvTranspose2d(192, 1, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1),
             nn.Sigmoid()
         )
 
