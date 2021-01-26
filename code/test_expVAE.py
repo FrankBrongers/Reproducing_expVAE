@@ -144,63 +144,66 @@ def main(args):
             pred = save_cam(r_im, file_path, pred, gcam_max = gcam_max)
 
             # Compute the correct and incorrect mask scores for all thresholds
-            for j, score in enumerate(scores):
+            if args.no_auroc:
+                for j, score in enumerate(scores):
 
-                threshold = (j + 1) / score_range
+                    threshold = (j + 1) / score_range
 
-                # Apply the threshold
-                pred_bin = ((pred) > threshold).astype(int)
-                gt_mask = y[i,:,:,:].numpy().astype(int)
+                    # Apply the threshold
+                    pred_bin = ((pred) > threshold).astype(int)
+                    gt_mask = y[i,:,:,:].numpy().astype(int)
 
-                TP = np.sum((pred_bin + gt_mask) == 2)
-                TN = np.sum((pred_bin + gt_mask) == 0)
+                    TP = np.sum((pred_bin + gt_mask) == 2)
+                    TN = np.sum((pred_bin + gt_mask) == 0)
 
-                FP = np.sum((gt_mask - pred_bin) == -1)
-                FN = np.sum((pred_bin - gt_mask) == -1)
-                # print(np.array([TP, TN, FP, FN]))
-                scores[j] += np.array([TP, TN, FP, FN])
-            test_index += 1
+                    FP = np.sum((gt_mask - pred_bin) == -1)
+                    FN = np.sum((pred_bin - gt_mask) == -1)
+                    # print(np.array([TP, TN, FP, FN]))
+                    scores[j] += np.array([TP, TN, FP, FN])
+                test_index += 1
 
         # Stop parameter
         if batch_idx == test_steps:
             print("Reached the maximum number of steps")
             break
+        
+    if args.no_auroc:
+        print(args.no_auroc)
+        # Compute AUROC
+        TPR_list = []
+        FPR_list = []
+        half_list_x = []
+        half_list_y = []
+        best_threshold_idx = 0
 
-    # Compute AUROC
-    TPR_list = []
-    FPR_list = []
-    half_list_x = []
-    half_list_y = []
-    best_threshold_idx = 0
+        for i, score in enumerate(scores):
+            TP, TN, FP, FN = (score[0], score[1], score[2], score[3])
 
-    for i, score in enumerate(scores):
-        TP, TN, FP, FN = (score[0], score[1], score[2], score[3])
+            TPR = TP / (TP + FN)
+            FPR = FP / (FP + TN)
 
-        TPR = TP / (TP + FN)
-        FPR = FP / (FP + TN)
+            TPR_list.append(TPR)
+            FPR_list.append(FPR)
 
-        TPR_list.append(TPR)
-        FPR_list.append(FPR)
+            half_list_x.append(i / score_range)
+            half_list_y.append(i / score_range)
 
-        half_list_x.append(i / score_range)
-        half_list_y.append(i / score_range)
+            # Check if current threshold is the best
+            if (TPR - FPR) > (TPR_list[best_threshold_idx] - FPR_list[best_threshold_idx]):
+                best_threshold_idx = i
 
-        # Check if current threshold is the best
-        if (TPR - FPR) > (TPR_list[best_threshold_idx] - FPR_list[best_threshold_idx]):
-            best_threshold_idx = i
+        print(f"AUC: {auc(FPR_list, TPR_list)} Best threshold: {best_threshold_idx / score_range}")
 
-    print(f"AUC: {auc(FPR_list, TPR_list)} Best threshold: {best_threshold_idx / score_range}")
-
-    if plot_ROC:
-        plt.plot(FPR_list, TPR_list, label="ROC")
-        plt.plot(half_list_x, half_list_y, '--')
-        plt.scatter(FPR_list[best_threshold_idx], TPR_list[best_threshold_idx])
-        plt.xlabel("FPR")
-        plt.ylabel("TPR")
-        plt.legend()
-        plt.savefig("./test_results/auroc_" + str(args.target_layer)+ ".png")
-        # plt.show()
-    return
+        if plot_ROC:
+            plt.plot(FPR_list, TPR_list, label="ROC")
+            plt.plot(half_list_x, half_list_y, '--')
+            plt.scatter(FPR_list[best_threshold_idx], TPR_list[best_threshold_idx])
+            plt.xlabel("FPR")
+            plt.ylabel("TPR")
+            plt.legend()
+            plt.savefig("./test_results/auroc_" + str(args.target_layer)+ ".png")
+            # plt.show()
+        return
 
 
 if __name__ == '__main__':
@@ -209,7 +212,7 @@ if __name__ == '__main__':
     print("using device", device)
 
     parser = argparse.ArgumentParser(description='Explainable VAE')
-    parser.add_argument('--result_dir', type=str, default='test_results', metavar='DIR',
+    parser.add_argument('--result_dir', type=str, default=None, metavar='DIR',
                         help='output directory')
     parser.add_argument('--batch_size', type=int, default=4, metavar='N',
                         help='input batch size for training (default: 128)')
@@ -223,7 +226,7 @@ if __name__ == '__main__':
                         help='select one of the following models: vanilla, vanilla_ped1, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
-    parser.add_argument('--model_path', type=str, default='./ckpt/vanilla_ped1_checkpoint.pth', metavar='DIR',
+    parser.add_argument('--model_path', type=str, default='./ckpt/vanilla_best.pth', metavar='DIR',
                         help='pretrained model directory')
 
     # Dataset parameters
@@ -237,6 +240,13 @@ if __name__ == '__main__':
                         help='select a target layer for generating the attention map.')
     parser.add_argument('--decoder', type=str, default='vanilla',
                         help='only for resnet VAE select one of following: resnet, vanilla')
+    parser.add_argument('--no_auroc', default=True, action='store_false', 
+                        help='if this argument is passed, the auroc score will not be computed')
+
     args = parser.parse_args()
+
+    # If no argument for result directory is specified, set it to data and model name
+    if args.result_dir is None:
+        args.result_dir = 'test_results_{}_{}'.format(args.dataset, args.model)
 
     main(args)
