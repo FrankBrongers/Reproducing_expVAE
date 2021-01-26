@@ -221,7 +221,7 @@ class ResNet18VAE_3(nn.Module):
 
         self.mean = [0.4305, 0.3999, 0.3900]
         self.std = [0.1822, 0.1733, 0.1624]
-        self.mv_normalize = T.Compose([T.Normalize(mean = self.mean, std = self.std)])
+        self.mv_normalize = T.Normalize(mean = self.mean, std = self.std)
 
     def forward(self, x):
         x = self.mvtec_normalize(x)
@@ -241,6 +241,10 @@ class ResNet18VAE_3(nn.Module):
 
     def mvtec_normalize(self, x):
         norm = self.mv_normalize(x)
+        print(norm)
+        norm = [self.mv_normalize(xi) for xi in x]
+        norm = torch.FloatTensor(norm)
+
         return norm
 
     @staticmethod

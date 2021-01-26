@@ -132,7 +132,7 @@ def main(args):
     """
     print("Device is", device)
     # writer = SummaryWriter()
-
+    print(" using torch version", torch.__version__)
     # Seed everything
     torch.manual_seed(args.seed)
 
