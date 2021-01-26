@@ -36,11 +36,17 @@ class MVTecDataset(Dataset):
         # load dataset
         self.x, self.y, self.mask = self.load_dataset_folder()
 
+        # Of just Hazlenut
         # self.mean = np.array([0.2397, 0.1764, 0.1709])
         # self.std = np.array([0.1650, 0.0728, 0.0414])
 
-        self.mean = np.array([0.485, 0.456, 0.406])
-        self.std = np.array([0.229, 0.224, 0.225])
+        # Own computed
+        self.mean = np.array([0.4305, 0.3999, 0.3900])
+        self.std = np.array([0.1822, 0.1733, 0.1624])
+
+        # from the loader found online
+        # self.mean = np.array([0.485, 0.456, 0.406])
+        # self.std = np.array([0.229, 0.224, 0.225])
         # set transforms
         if grayscale is True:
             self.transform_x = T.Compose([T.Resize(resize, Image.ANTIALIAS),
@@ -82,7 +88,7 @@ class MVTecDataset(Dataset):
             mask = Image.open(mask)
             mask = self.transform_mask(mask)
 
-        x = self.normalize(x)
+        # x = self.normalize(x)
 
         # return x, y, mask
         return x, mask

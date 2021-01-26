@@ -31,8 +31,8 @@ CLASS_NAMES = ['bottle', 'cable', 'capsule', 'carpet', 'grid',
                'tile', 'toothbrush', 'transistor', 'wood', 'zipper']
 
 num_classes = len(CLASS_NAMES)
-for i in range(1):
-    class_name = mvtec.CLASS_NAMES[5]   # nuts
+for i in range(num_classes):
+    class_name = mvtec.CLASS_NAMES[i]   # nuts
     train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
     kwargs = {'num_workers': 4, 'pin_memory': True} if torch.cuda.is_available() else {}
     train_loader = torch.utils.data.DataLoader(
@@ -46,7 +46,7 @@ for i in range(1):
         mean += images.mean(2).sum(0)
         std += images.std(2).sum(0)
     totlen += len(train_loader.dataset)
-    print(i)
+    print(i, mean/totlen, std/totlen)
 mean /= totlen
 std /= totlen
 print("mean, std",mean, std)

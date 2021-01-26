@@ -45,10 +45,11 @@ def loss_function(recon_x, x, mu, logvar, ):
     """
     B = recon_x.shape[0]
     rc = recon_x.shape[1]
-    x = unnormalize(x)
+    if rc == 3:
+        x = unnormalize(x)
     # recon_x = unnormalize(recon_x)
-    # rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
-    rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
+    rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
+    # rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
 
     return rec_loss + KLD
