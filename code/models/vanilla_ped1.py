@@ -4,6 +4,8 @@ import torch.nn as nn
 from functools import reduce
 from operator import mul
 
+from torch.nn.modules.batchnorm import BatchNorm2d
+
 
 class Flatten(nn.Module):
     def forward(self, input):
@@ -46,25 +48,22 @@ class ConvVAE_ped1(nn.Module):
         super(ConvVAE_ped1, self).__init__()
 
         self.latent_size = latent_size
-        
-        input_size = 96
-        config = [32, 64, 128]
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, config[0], kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(config[0]),
+            nn.Conv2d(1, 192, kernel_size=4, stride=2, padding=1),
+            BatchNorm2d(192),
             nn.ReLU(),
 
-            nn.Conv2d(config[0], config[1], kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(config[1]),
+            nn.Conv2d(192, 144, kernel_size=4, stride=2, padding=1),
+            BatchNorm2d(144),
             nn.ReLU(),
 
-            nn.Conv2d(config[1], config[2], kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(config[2]),
+            nn.Conv2d(144, 96, kernel_size=4, stride=2, padding=1),
+            BatchNorm2d(96),
             nn.ReLU(),
-
+            
             Flatten(),
-            nn.Linear(18432, 1024),
+            nn.Linear(13824, 1024),
             nn.ReLU()
         )
 
@@ -77,19 +76,21 @@ class ConvVAE_ped1(nn.Module):
         self.decoder = nn.Sequential(
             nn.Linear(self.latent_size, 1024),
             nn.ReLU(),
-            nn.Linear(1024, 18432),
+            nn.Linear(1024, 13824),
             nn.ReLU(),
-            Unflatten(config[2], 12, 12),
-            nn.ReLU(),
-            nn.ConvTranspose2d(config[2], config[1], kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(config[1]),
-            nn.ReLU(),
+            Unflatten(96, 12, 12),
 
-            nn.ConvTranspose2d(config[1], config[0], kernel_size=4, stride=2, padding=1), # padding is 0 because of rounding to 12
-            nn.BatchNorm2d(config[0]),
-            nn.ReLU(),  
+            nn.ReLU(),
+            BatchNorm2d(96),
+            nn.ConvTranspose2d(96, 144, kernel_size=4, stride=2, padding=1),
 
-            nn.ConvTranspose2d(config[0], 1, kernel_size=4, stride=2, padding=1),
+            nn.ReLU(),
+            BatchNorm2d(144),
+            nn.ConvTranspose2d(144, 192, kernel_size=4, stride=2, padding=1), # padding is 0 because of rounding to 12
+            
+            nn.ReLU(),
+            BatchNorm2d(192),
+            nn.ConvTranspose2d(192, 1, kernel_size=4, stride=2, padding=1),
             nn.Sigmoid()
         )
 

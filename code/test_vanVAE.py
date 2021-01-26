@@ -16,17 +16,17 @@ import OneClassMnist
 import Ped1_loader
 import MVTec_loader as mvtec
 
-from gradcam import GradCAM
 import cv2
 from PIL import Image
 from torchvision.utils import save_image, make_grid
+
 import matplotlib.pyplot as plt
 
 # Initialize AUROC parameters
-test_steps = 100 # Choose a very high number to test the whole dataset
+test_steps = 1800 # Choose a very high number to test the whole dataset
 score_range = 50 # How many threshold do you want to test?
 scores = np.zeros((score_range, 4)) # TP, TN, FP, FN
-plot_ROC = False # Plot the ROC curve or not
+plot_ROC = True # Plot the ROC curve or not
 
 save_gcam_image = True
 norm_gcam_image = True
@@ -45,20 +45,20 @@ def save_cam(image, filename, gcam):
         gcam = gcam / np.max(gcam)
     else:
         # Divide by a hand-chosen maximum value
-        gcam = gcam / 1.5
+        gcam = gcam / 255
         gcam = np.clip(gcam, 0.0, 1.0)
 
     # Save image
     if save_gcam_image:
         h, w, d = image.shape
-
         save_gcam = cv2.resize(gcam, (w, h))
         save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
-        save_gcam = np.asarray(save_gcam, dtype=np.float) # + np.asarray(image, dtype=np.float)
-        save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
-        # print(np.unique(save_gcam), save_gcam.min(), save_gcam.max())
+        save_gcam = np.asarray(save_gcam, dtype=np.float) #+ np.asarray(image, dtype=np.float)
         save_gcam = np.uint8(save_gcam)
-        cv2.imwrite(filename, save_gcam) # Uncomment to save the images
+        # cv2.imwrite(filename, save_gcam) # Uncomment to save the images
+
+        # gcam = gcam - np.min(gcam)
+        # gcam = gcam / np.max(gcam)
     return gcam
 
 def main(args):
@@ -67,12 +67,6 @@ def main(args):
     Inputs:
         args - Namespace object from the argument parser
     """
-
-    torch.manual_seed(args.seed)
-
-    # Load the dataset
-    one_class = args.one_class # Choose the current outlier digit to be 8
-
     # Load dataset
     if args.dataset == 'mnist':
         test_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=False, transform=transforms.ToTensor())
@@ -85,64 +79,49 @@ def main(args):
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
+        test_dataset,
+        batch_size=args.batch_size, shuffle=False, **kwargs)
 
-    # Select a model architecture
-    if args.model == 'vanilla':
-        model = ConvVAE(args.latent_size).to(device)
-    elif args.model == 'vanilla_ped1':
-        model = ConvVAE_ped1(args.latent_size).to(device)
-    elif args.model == 'resnet18':
-        model = ResNet18VAE(args.latent_size).to(device)
-        # TODO Understand why to choose a specific target layer
-    elif args.model == 'resnet18_2':
-        model = ResNet18VAE_2(args.latent_size, x_dim=256, nc=3).to(device)
-        # TODO Understand why to choose a specific target layer
-
-    # Load model
-    checkpoint = torch.load(args.model_path)
-    model.load_state_dict(checkpoint['state_dict'])
-    mu_avg, logvar_avg = (0, 1)
-    gcam = GradCAM(model, target_layer=args.target_layer, device=device)
     test_index = 0
 
     # Generate attention maps
     for batch_idx, (x, y) in enumerate(test_loader):
-        # print("batch_idx", batch_idx)
-        model.eval()
-        x = x.to(device)
-        x_rec, mu, logvar = gcam.forward(x)
 
-        model.zero_grad()
-        gcam.backward(mu, logvar, mu_avg, logvar_avg)
-        gcam_map = gcam.generate()
-
-        # If image has one channel, make it three channel(need for heatmap)
-        if x.size(1) == 1:
-            x = x.repeat(1, 3, 1, 1)
+        # # If image has one channel, make it three channel(need for heatmap)
+        # if x.size(1) == 1:
+        #     x = x.repeat(1, 3, 1, 1)
 
         # Visualize and save attention maps
         for i in range(x.size(0)):
+
             # for every image in batch
-            raw_image = x[i]
+            raw_image = x[i,0]
 
-            # Normalize image to
-            raw_image = raw_image - torch.min(raw_image)
-            raw_image = raw_image / torch.max(raw_image)
+            ndarr = raw_image.cpu().numpy() * 255
 
-            # ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()[:,:,:3]
-            ndarr = raw_image.permute(1, 2, 0).cpu().numpy() * 255
+            # Save the original image
             im = Image.fromarray(ndarr.astype(np.uint8))
             im_path = args.result_dir
             if not os.path.exists(im_path):
                 os.mkdir(im_path)
-            im.save(os.path.join(im_path,
-                             "{}-{}-origin.png".format(test_index, str(one_class))))
+            # im.save(os.path.join(im_path,
+            #                  "{}-origin.png".format(test_index)))
 
             file_path = os.path.join(im_path,
-                                 "{}-{}-attmap.png".format(test_index, str(one_class)))
+                                 "{}-attmap.png".format(test_index, ))
             r_im = np.asarray(im)
-            pred = gcam_map[i].squeeze().cpu().data.numpy()
+
+            # Load average VAE generation
+            avg_gen = np.asarray(Image.open('reconstructions/ucsd_ped1_2.png').convert('L'))
+
+            # Make prediction
+            pred = np.abs(avg_gen - ndarr) / 255
+            # plt.imshow(pred, cmap='hot')
+            # plt.show()
+
+            r_im = np.tile(np.expand_dims(r_im, axis=2), 1)
+
+            # Save heatmap
             pred = save_cam(r_im, file_path, pred)
 
             # Compute the correct and incorrect mask scores for all thresholds
@@ -159,14 +138,17 @@ def main(args):
 
                 FP = np.sum((gt_mask - pred_bin) == -1)
                 FN = np.sum((pred_bin - gt_mask) == -1)
-                
+                # print(np.array([TP, TN, FP, FN]))
                 scores[j] += np.array([TP, TN, FP, FN])
             test_index += 1
+
 
         # Stop parameter
         if batch_idx == test_steps:
             print("Reached the maximum number of steps")
             break
+
+    print(np.sum(scores, axis=0))
 
     # Compute AUROC
     TPR_list = []
@@ -200,8 +182,8 @@ def main(args):
         plt.xlabel("FPR")
         plt.ylabel("TPR")
         plt.legend()
-        plt.savefig("./test_results/auroc_" + str(args.target_layer)+ ".png")
-        # plt.show()
+        # plt.savefig("./test_results/auroc_" + str(args.target_layer)+ ".png")
+        plt.show()
     return
 
 
@@ -231,12 +213,6 @@ if __name__ == '__main__':
     # Dataset parameters
     parser.add_argument('--dataset', type=str, default='ucsd_ped1',
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
-    parser.add_argument('--one_class', type=int, default=7, metavar='N',
-                        help='inlier digit for one-class VAE training')
-
-    # AUROC parameters
-    parser.add_argument('--target_layer', type=str, default='encoder.4',
-                        help='select a target layer for generating the attention map.')
 
     args = parser.parse_args()
 

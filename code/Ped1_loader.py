@@ -29,9 +29,6 @@ class UCSDAnomalyDataset(data.Dataset):
             else:
                 y_dirs.append(None)
 
-
-
-                
         self.x_samples = []
         self.y_samples = []
 
@@ -46,37 +43,24 @@ class UCSDAnomalyDataset(data.Dataset):
                 else:
                     self.y_samples.append(None)
 
-
-        # uncomment to print counts
-        # c = 0        
-        # nc = 0
-        # for d in self.y_samples:
-        #     if d:
-        #         c += 1
-        #     else:
-                
-        #         nc += 1
-        # print(c, nc)
-
-        # self.pil_transform = transforms.Compose([
-        #             transforms.Resize((resize, resize)),
-        #             transforms.Grayscale(),
-        #             transforms.ToTensor(),
-        #             transforms.Normalize(mean=(0.3750352255196134,), std=(0.20129592430286292,))]
-                    # )
-
         self.pil_transform = transforms.Compose([
                     transforms.Resize((resize, resize)),
                     transforms.Grayscale(),
-                    transforms.ToTensor()])
+                    transforms.ToTensor(),
+                    ])
+
+        self.mean_transform = transforms.Compose([
+                    transforms.Normalize(mean=(0.3750352255196134,), std=(0.20129592430286292,))
+                    ])
+
 
 
     def __getitem__(self, index):
         # Get x
         with open(self.x_samples[index], 'rb') as file:
-            x_frame = Image.open(file).convert('RGB')
+            x_frame = Image.open(file)
             x_frame = self.pil_transform(x_frame)
-
+            x_frame = self.mean_transform(x_frame)
         # Get y
         if self.y_samples[index]:
             with open(self.y_samples[index], 'rb') as file:
