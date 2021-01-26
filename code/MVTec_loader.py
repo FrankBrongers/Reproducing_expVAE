@@ -8,6 +8,10 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms as T
 import numpy as np
+import matplotlib.pyplot as plt
+
+import cv2
+
 
 URL = 'ftp://guest:GU.205dldo@ftp.softronics.ch/mvtec_anomaly_detection/mvtec_anomaly_detection.tar.xz'
 CLASS_NAMES = ['bottle', 'cable', 'capsule', 'carpet', 'grid',
@@ -32,6 +36,11 @@ class MVTecDataset(Dataset):
         # load dataset
         self.x, self.y, self.mask = self.load_dataset_folder()
 
+        # self.mean = np.array([0.2397, 0.1764, 0.1709])
+        # self.std = np.array([0.1650, 0.0728, 0.0414])
+
+        self.mean = np.array([0.485, 0.456, 0.406])
+        self.std = np.array([0.229, 0.224, 0.225])
         # set transforms
         if grayscale is True:
             self.transform_x = T.Compose([T.Resize(resize, Image.ANTIALIAS),
@@ -43,10 +52,7 @@ class MVTecDataset(Dataset):
         else:
             self.transform_x = T.Compose([T.Resize(resize, Image.ANTIALIAS),
                                         T.CenterCrop(cropsize),
-                                        T.ToTensor()
-                                        # T.Normalize((0.5, 0.5, 0.5),
-                                        #             (0.5, 0.5, 0.5))
-                                                    ])
+                                        T.ToTensor()])
         self.transform_mask = T.Compose([T.Resize(resize, Image.NEAREST),
                                          T.CenterCrop(cropsize),
                                          T.ToTensor()])
@@ -57,11 +63,15 @@ class MVTecDataset(Dataset):
                                           T.RandomHorizontalFlip(),
                                           T.RandomVerticalFlip(),
                                           T.ToTensor()])
+        self.inv_normalize = T.Normalize(mean = -self.mean/self.std, std = 1/self.std)
+        self.normalize = T.Normalize(mean = self.mean, std = self.std)
+
     def __getitem__(self, idx):
         x, y, mask = self.x[idx], self.y[idx], self.mask[idx]
 
         x = Image.open(x).convert('RGB')
         x = self.transform_x(x)
+
         if self.is_train == True:
             x = self.augmentation_x(x)
 
@@ -72,11 +82,20 @@ class MVTecDataset(Dataset):
             mask = Image.open(mask)
             mask = self.transform_mask(mask)
 
+        x = self.normalize(x)
+
         # return x, y, mask
         return x, mask
 
     def __len__(self):
         return len(self.x)
+
+    def unnormalize(self, x):
+
+        unnorm = self.inv_normalize(x)
+        return unnorm
+
+
 
     def load_dataset_folder(self):
         phase = 'train' if self.is_train else 'test'

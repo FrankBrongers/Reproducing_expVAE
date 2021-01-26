@@ -19,10 +19,20 @@ import OneClassMnist
 import Ped1_loader
 import MVTec_loader as mvtec
 import matplotlib
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-def loss_function(recon_x, x, mu, logvar):
+from torchvision import transforms as T
+
+
+def unnormalize(x):
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    inv_normalize = T.Normalize(mean = -mean/std, std = 1/std)
+    unnorm = inv_normalize(x)
+    return unnorm
+
+def loss_function(recon_x, x, mu, logvar, ):
     """
     Calculates the reconstruction (binary cross entropy) and regularization (KLD) losses to form the total loss of the VAE.
     Inputs:
@@ -33,8 +43,10 @@ def loss_function(recon_x, x, mu, logvar):
     """
     B = recon_x.shape[0]
     rc = recon_x.shape[1]
-    rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
-        # rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
+    x = unnormalize(x)
+    # recon_x = unnormalize(recon_x)
+    # rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
+    rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
 
     return rec_loss + KLD
@@ -54,6 +66,7 @@ def train(model, train_loader, optimizer, args):
     train_loss = 0
 
     for batch_idx, (data, _) in enumerate(train_loader):
+
         data = data.to(device)
 
         optimizer.zero_grad()
@@ -107,9 +120,6 @@ def save_checkpoint(state, is_best, outdir, args):
     torch.save(state, checkpoint_file)
     if is_best:
         shutil.copyfile(checkpoint_file, best_file)
-# def show(img):
-#     npimg = img.numpy()
-#     plt.imshow(np.transpose(npimg, (1,2,0)), interpolation='nearest')
 
 def main(args):
     """
@@ -139,6 +149,7 @@ def main(args):
         class_name = mvtec.CLASS_NAMES[5]   # nuts
         train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
+
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
     train_loader = torch.utils.data.DataLoader(
@@ -189,6 +200,11 @@ def main(args):
                     os.makedirs(save_dir)
                 testim =  next(iter(train_loader))[0][0][None,:].to(device)
                 gen_testim = model(testim)[0]
+                if args.dataset == "mvtec_ad":
+
+                    testim = train_dataset.unnormalize(testim)
+                    # gen_testim = train_dataset.unnormalize(gen_testim)
+
                 combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()],  padding=100)
                 save_image(combi.cpu(), os.path.join(save_dir,str(args.decoder) +"combi_"+ str(epoch) + '.png'))
 
@@ -218,7 +234,8 @@ def main(args):
         with torch.no_grad():
             sample = torch.randn(64, args.latent_size).to(device)
             sample = model.decode(sample).cpu()
-
+            if args.dataset == "mvtec_ad":
+                sample = train_dataset.unnormalize(sample)
             save_dir = os.path.join('./',args.result_dir)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
