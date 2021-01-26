@@ -109,6 +109,7 @@ def main(args):
 
     # Generate attention maps
     for batch_idx, (x, y) in enumerate(test_loader):
+
         # print("batch_idx", batch_idx)
         model.eval()
         x = x.to(device)
@@ -160,15 +161,15 @@ def main(args):
                     FN = np.sum((pred_bin - gt_mask) == -1)
                     # print(np.array([TP, TN, FP, FN]))
                     scores[j] += np.array([TP, TN, FP, FN])
-                test_index += 1
+            test_index += 1
 
         # Stop parameter
         if batch_idx == test_steps:
             print("Reached the maximum number of steps")
             break
-        
+
     if args.no_auroc:
-        print(args.no_auroc)
+
         # Compute AUROC
         TPR_list = []
         FPR_list = []
