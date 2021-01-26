@@ -281,7 +281,7 @@ if __name__ == '__main__':
                         help='inlier digit for one-class VAE training')
     parser.add_argument('--vae_testsave', type=bool, default=False,
                         help='save input output image of VAE during training')
-    parser.add_argument('--decoder', type=str, default='vanilla',
+    parser.add_argument('--decoder', type=str, default='',
                         help='only for resnet VAE select one of following: resnet, vanilla')
 
     args = parser.parse_args()
