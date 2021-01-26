@@ -178,7 +178,7 @@ def main(args):
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40, 90], gamma=0.5)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 80], gamma=0.1)
+    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 80], gamma=0.1)
 
     start_epoch = 0
     best_train_loss = np.finfo('f').max
@@ -244,7 +244,7 @@ def main(args):
                 os.makedirs(save_dir)
             save_image(sample.view(imshape), os.path.join(save_dir,str(args.decoder) +'sample_' + str(epoch) + '.png'))
 
-        scheduler.step()
+        # scheduler.step()
 
 if __name__ == '__main__':
 
