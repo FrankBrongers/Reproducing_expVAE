@@ -225,6 +225,7 @@ class ResNet18VAE_3(nn.Module):
 
     def forward(self, x):
         x = self.mvtec_normalize(x)
+        print(x.size())
         mean, logvar = self.encoder(x)
         z = self.reparameterize(mean, logvar)
         dec_val = self.decoder(z)
@@ -241,6 +242,8 @@ class ResNet18VAE_3(nn.Module):
 
     def mvtec_normalize(self, x):
         norm = self.mv_normalize(x)
+        if norm.size(0) == 3:
+            norm = norm[None,:]
         return norm
 
     @staticmethod

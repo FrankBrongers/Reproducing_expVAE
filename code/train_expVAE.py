@@ -205,7 +205,7 @@ def main(args):
                 if not os.path.exists(save_dir):
                     os.makedirs(save_dir)
                 testim =  next(iter(train_loader))[0][0][None,:].to(device)
-                gen_testim = model(testim)[0]
+                gen_testim = model(testim.squeeze())[0]
 
                 combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()],  padding=100)
                 save_image(combi.cpu(), os.path.join(save_dir,str(args.decoder) +"combi_"+ str(epoch) + '.png'))
