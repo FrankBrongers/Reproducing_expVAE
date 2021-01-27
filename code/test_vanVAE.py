@@ -24,13 +24,9 @@ from torchvision.utils import save_image, make_grid
 import matplotlib.pyplot as plt
 
 # Initialize AUROC parameters
-test_steps = 1600 # Choose a very high number to test the whole dataset
-score_range = 50 # How many threshold do you want to test?
-scores = np.zeros((score_range, 4)) # TP, TN, FP, FN
+test_steps = 1801 # Choose a very high number to test the whole dataset
 plot_ROC = False # Plot the ROC curve or not
-
-save_gcam_image = True
-norm_gcam_image = True
+save_gcam_image = False
 
 def save_cam(image, filename, gcam):
     """
@@ -40,26 +36,14 @@ def save_cam(image, filename, gcam):
         filename - name of to be saved file
         gcam - generated attention map of image
     """
-    # Normalize 
-    if norm_gcam_image:
-        gcam = gcam - np.min(gcam)
-        gcam = gcam / np.max(gcam)
-    else:
-        # Divide by a hand-chosen maximum value
-        gcam = gcam / 255
-        gcam = np.clip(gcam, 0.0, 1.0)
-
     # Save image
-    if save_gcam_image:
-        h, w, d = image.shape
-        save_gcam = cv2.resize(gcam, (w, h))
-        save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
-        save_gcam = np.asarray(save_gcam, dtype=np.float) + np.asarray(image, dtype=np.float)
-        save_gcam = np.uint8(save_gcam)
-        # cv2.imwrite(filename, save_gcam) # Uncomment to save the images
-
-        # gcam = gcam - np.min(gcam)
-        # gcam = gcam / np.max(gcam)
+    h, w, d = image.shape
+    save_gcam = cv2.resize(gcam, (w, h))
+    save_gcam = cv2.applyColorMap(np.uint8(save_gcam), cv2.COLORMAP_JET)
+    save_gcam = np.asarray(save_gcam, dtype=np.float) + np.asarray(image, dtype=np.float)
+    save_gcam = 255 * save_gcam / np.max(save_gcam) 
+    save_gcam = np.uint8(save_gcam)
+    cv2.imwrite(filename, save_gcam)
     return gcam
 
 def main(args):
@@ -70,71 +54,85 @@ def main(args):
     """
     # Load dataset
     if args.dataset == 'mnist':
-        # test_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=False, transform=transforms.ToTensor())
         print("Not implemented yet")
         return
     elif args.dataset == 'ucsd_ped1':
-        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=96)
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('./data', train=False, resize=args.image_size)
     elif args.dataset == 'mvtec_ad':
-        # class_name = mvtec.CLASS_NAMES[5]
-        # test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
         print("Not implemented yet")
         return
+
+    # Select a model architecture
+    if args.model == 'vanilla':
+        model = ConvVAE(args.latent_size).to(device)
+    elif args.model == 'vanilla_ped1':
+        model = ConvVAE_ped1(args.latent_size).to(device)
+    elif args.model == 'resnet18':
+        model = ResNet18VAE(args.latent_size).to(device)
+        # TODO Understand why to choose a specific target layer
+    elif args.model == 'resnet18_2':
+        model = ResNet18VAE_2(args.latent_size, x_dim=256, nc=3).to(device)
+        # TODO Understand why to choose a specific target layer
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
 
-    prediction_stack = np.zeros((test_steps * args.batch_size, args.image_size, args.image_size))
-    gt_mask_stack = np.zeros((test_steps * args.batch_size, args.image_size, args.image_size))
+    # Load model
+    checkpoint = torch.load(args.model_path)
+    model.load_state_dict(checkpoint['state_dict'])
+    mu_avg, logvar_avg = (0, 1)
+
+    prediction_stack = np.zeros((test_steps * args.batch_size, args.image_size, args.image_size), dtype=np.float32)
+    gt_mask_stack = np.zeros((test_steps * args.batch_size, args.image_size, args.image_size), dtype=np.uint8)
 
     # Generate attention maps
     for batch_idx, (x, y) in enumerate(test_loader):
+        x = x.to(device)
 
-        # Normalize x
-        x = x - torch.min(x)
-        x = x / torch.max(x)
+        if args.reconstruction:
+            # Generate VAE reconstruction
+            x_latent_mean, _ = model.encode(x)
+            x_reconstruction = model.decode(x_latent_mean)
+            x_reconstruction = x_reconstruction.unnormalize(x_reconstruction).detach().cpu().numpy() * 255
 
-        # Visualize and save attention maps
-        for i in range(x.size(0)):
+        else:
+            # use static reconstruction image
+            x_reconstruction = np.asarray(Image.open('reconstructions/ucsd_ped1_1.png').convert('L'))
+
+        x = test_dataset.unnormalize(x).detach().cpu().numpy() * 255
+
+        # Compute the absolute distance
+        prediction = np.abs(x - x_reconstruction)
+
+        # Visualize and save distance maps
+        for i in range(x.shape[0]):
+            # Load average VAE reconstruction
+            # vae_reconstruction = np.asarray(Image.open('reconstructions/ucsd_ped1_1.png').convert('L'))
 
             # for every image in batch
-            ndarr = x[i,0].cpu().numpy() * 255
-            file_path = os.path.join(args.result_dir, "{}-{}-attmap.png".format(batch_idx, i))
+            input_image = x[i,0]
 
-            # Load average VAE generation
-            avg_gen = np.asarray(Image.open('reconstructions/ucsd_ped1_1.png').convert('L'))
-
-            # Make prediction
-            pred = np.abs(avg_gen - ndarr)
-
-            # # Save heatmap
-            # stacked_im = np.tile(np.expand_dims(ndarr, axis=2), 1)
-            # pred = save_cam(stacked_im, file_path, pred)
-
-            # # Compute the correct and incorrect mask scores for all thresholds
-            # for j, score in enumerate(scores):
-
-            #     threshold = (j) / (score_range - 1)
-
-            # Apply the threshold
-            # pred_bin = (pred > threshold)
-            gt_mask = y[i,:,:,:].numpy()
-            
             # Add to the stacks
-            prediction_stack[batch_idx*args.batch_size + i] = pred
-            gt_mask_stack[batch_idx*args.batch_size + i] = gt_mask
+            prediction_stack[batch_idx*args.batch_size + i] = prediction[i, 0]
+            gt_mask_stack[batch_idx*args.batch_size + i] = y[i]
+
+            # Save heatmap
+            if save_gcam_image:
+                file_path = os.path.join(args.result_dir, "{}-{}-attmap.png".format(batch_idx, i))
+                stacked_im = np.tile(np.expand_dims(input_image, axis=2), 1)
+                save_cam(stacked_im, file_path, prediction[i, 0])
 
         # Stop parameter
         if batch_idx == (test_steps - 1):
             print("Reached the maximum number of steps")
             break
 
-    auc = roc_auc_score(gt_mask_stack.flatten().astype(np.uint8), prediction_stack.astype(np.uint8).flatten())
+    auc = roc_auc_score(gt_mask_stack.flatten(), prediction_stack.flatten())
     print(f"AUROC score: {auc}")
 
     if plot_ROC:
-        tpr, tnr, _ =  roc_curve(gt_mask_stack.astype(np.uint8).flatten(), prediction_stack.astype(np.uint8).flatten())
+        tpr, tnr, _ =  roc_curve(gt_mask_stack.flatten(), prediction_stack.flatten())
         plt.plot(tpr, tnr, label="ROC")
         plt.xlabel("FPR")
         plt.ylabel("TPR")
@@ -158,11 +156,25 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', default=1, type=int,
                         help='Number of workers to use in the data loaders.')
 
+    # model option
+    parser.add_argument('--model', type=str, default='vanilla_ped1',
+                        help='select one of the following models: vanilla, vanilla_ped1, resnet18')
+    parser.add_argument('--latent_size', type=int, default=32, metavar='N',
+                        help='latent vector size of encoder')
+    parser.add_argument('--model_path', type=str, default='/media/bob/OS/Users/boble/Documents/AI - year 1/FACT-AI/vanilla_ped1_best_120_deeper.pth', metavar='DIR',
+                        help='pretrained model directory')
+
     # Dataset parameters
     parser.add_argument('--dataset', type=str, default='ucsd_ped1',
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
     parser.add_argument('--image_size', type=int, default=100,
                         help='Select an image size')
+
+    # AUROC parameters
+
+    # Generation parameters
+    parser.add_argument('--reconstruction', type=bool, default=False,
+                        help='If True: use VAE reconstruction from input, else: use average reconstruction.')
 
     args = parser.parse_args()
 
