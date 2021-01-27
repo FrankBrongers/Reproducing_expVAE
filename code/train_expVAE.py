@@ -222,7 +222,7 @@ def main(args):
                 os.makedirs(save_dir)
             save_image(sample.view(imshape), os.path.join(save_dir,'sample_' + str(epoch) + '.png'))
 
-        scheduler.step()
+        # scheduler.step()
 
 if __name__ == '__main__':
 
