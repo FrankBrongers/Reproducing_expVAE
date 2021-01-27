@@ -19,7 +19,7 @@ import Ped1_loader
 import MVTec_loader as mvtec
 
 from gradcam import GradCAM
-import cv2
+# import cv2
 from PIL import Image
 from torchvision.utils import save_image, make_grid
 
@@ -50,17 +50,17 @@ def save_cam(image, filename, gcam, gcam_max = 1):
         gcam = np.clip(gcam, 0.0, 1.0)
 
     # Save image
-    if save_gcam_image:
-        h, w, d = image.shape
-
-        save_gcam = cv2.resize(gcam, (w, h))
-        save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
-        save_gcam = np.asarray(save_gcam, dtype=np.float) + \
-            np.asarray(image, dtype=np.float)
-        save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
-        # print(np.unique(save_gcam), save_gcam.min(), save_gcam.max())
-        save_gcam = np.uint8(save_gcam)
-        cv2.imwrite(filename, save_gcam) # Uncomment to save the images
+    # if save_gcam_image:
+    #     h, w, d = image.shape
+    #
+    #     save_gcam = cv2.resize(gcam, (w, h))
+    #     save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
+    #     save_gcam = np.asarray(save_gcam, dtype=np.float) + \
+    #         np.asarray(image, dtype=np.float)
+    #     save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
+    #     # print(np.unique(save_gcam), save_gcam.min(), save_gcam.max())
+    #     save_gcam = np.uint8(save_gcam)
+    #     cv2.imwrite(filename, save_gcam) # Uncomment to save the images
     return gcam
 
 def main(args):

@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from torchvision.utils import save_image
 
 
-import cv2
+# import cv2
 
 
 URL = 'ftp://guest:GU.205dldo@ftp.softronics.ch/mvtec_anomaly_detection/mvtec_anomaly_detection.tar.xz'
