@@ -253,6 +253,7 @@ if __name__ == '__main__':
 
     # If no argument for result directory is specified, set it to data and model name
     if args.result_dir is None:
-        args.result_dir = 'test_results_{}_{}'.format(args.dataset, args.model)
+        # args.result_dir = 'test_results_{}_{}'.format(args.dataset, args.model)
+        args.result_dir = 'test_results'
 
     main(args)
