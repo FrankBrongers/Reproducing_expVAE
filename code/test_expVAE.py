@@ -23,7 +23,7 @@ from torchvision.utils import save_image, make_grid
 import matplotlib.pyplot as plt
 
 # Initialize AUROC parameters
-test_steps = 100 # Choose a very high number to test the whole dataset
+test_steps = 200 # Choose a very high number to test the whole dataset
 score_range = 50 # How many threshold do you want to test?
 scores = np.zeros((score_range, 4)) # TP, TN, FP, FN
 plot_ROC = False # Plot the ROC curve or not
@@ -54,7 +54,7 @@ def save_cam(image, filename, gcam):
 
         save_gcam = cv2.resize(gcam, (w, h))
         save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
-        save_gcam = np.asarray(save_gcam, dtype=np.float) # + np.asarray(image, dtype=np.float)
+        save_gcam = np.asarray(save_gcam, dtype=np.float) + np.asarray(image, dtype=np.float)
         save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
         # print(np.unique(save_gcam), save_gcam.min(), save_gcam.max())
         save_gcam = np.uint8(save_gcam)
@@ -225,7 +225,7 @@ if __name__ == '__main__':
                         help='select one of the following models: vanilla, vanilla_ped1, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
-    parser.add_argument('--model_path', type=str, default='/media/bob/B.Leijnse/vanilla_ped1_best_100.pth', metavar='DIR',
+    parser.add_argument('--model_path', type=str, default='./ckpt/vanilla_ped1_best.pth', metavar='DIR',
                         help='pretrained model directory')
 
     # Dataset parameters
@@ -235,7 +235,7 @@ if __name__ == '__main__':
                         help='inlier digit for one-class VAE training')
 
     # AUROC parameters
-    parser.add_argument('--target_layer', type=str, default='encoder.4',
+    parser.add_argument('--target_layer', type=str, default='encoder.8',
                         help='select a target layer for generating the attention map.')
 
     args = parser.parse_args()

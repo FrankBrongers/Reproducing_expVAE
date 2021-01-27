@@ -29,10 +29,16 @@ def loss_function(recon_x, x, mu, logvar):
         mu - Mean of the posterior distributions.
         log_var - Log standard deviation of the posterior distributions.
     """
+    
+
     B = recon_x.shape[0]
     rc = recon_x.shape[1]
     # if rc == 1:
-    if False:
+    if True:
+        # Normalize x
+        x = x - torch.min(x)
+        x = x / torch.max(x)
+
         rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
     else:
         rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)

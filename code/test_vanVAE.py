@@ -7,10 +7,10 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from models.vanilla import ConvVAE
-from models.vanilla_ped1 import ConvVAE_ped1
-from models.resnet18 import ResNet18VAE
-from models.resnet18_enc_only import ResNet18VAE_2
+# from models.vanilla import ConvVAE
+# from models.vanilla_ped1 import ConvVAE_ped1
+# from models.resnet18 import ResNet18VAE
+# from models.resnet18_enc_only import ResNet18VAE_2
 
 import OneClassMnist
 import Ped1_loader
@@ -71,7 +71,7 @@ def main(args):
     if args.dataset == 'mnist':
         test_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
-        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=96)
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         class_name = mvtec.CLASS_NAMES[5]
@@ -127,7 +127,7 @@ def main(args):
             # Compute the correct and incorrect mask scores for all thresholds
             for j, score in enumerate(scores):
 
-                threshold = (j) / (score_range - 1)
+                threshold = (j +1) / (score_range + 1)
 
                 # Apply the threshold
                 pred_bin = ((pred) > threshold).astype(int)
