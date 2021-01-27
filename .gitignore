@@ -144,3 +144,5 @@ runs/
 # Pyre type checker
 .pyre/
 .vscode/launch.json
+.vscode/setting.json
+
