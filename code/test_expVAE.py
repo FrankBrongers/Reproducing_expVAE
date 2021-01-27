@@ -20,6 +20,7 @@ from gradcam import GradCAM
 import cv2
 from PIL import Image
 from torchvision.utils import save_image, make_grid
+import matplotlib.pyplot as plt
 
 # Initialize AUROC parameters
 test_steps = 100 # Choose a very high number to test the whole dataset
@@ -53,8 +54,7 @@ def save_cam(image, filename, gcam, gcam_max = 1):
 
         save_gcam = cv2.resize(gcam, (w, h))
         save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
-        save_gcam = np.asarray(save_gcam, dtype=np.float) + \
-            np.asarray(image, dtype=np.float)
+        save_gcam = np.asarray(save_gcam, dtype=np.float) # + np.asarray(image, dtype=np.float)
         save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
         # print(np.unique(save_gcam), save_gcam.min(), save_gcam.max())
         save_gcam = np.uint8(save_gcam)
@@ -85,8 +85,7 @@ def main(args):
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
-        test_dataset,
-        batch_size=args.batch_size, shuffle=True, **kwargs)
+        test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
 
     # Select a model architecture
     if args.model == 'vanilla':
@@ -97,15 +96,15 @@ def main(args):
         model = ResNet18VAE(args.latent_size).to(device)
         # TODO Understand why to choose a specific target layer
     elif args.model == 'resnet18_2':
-        model = ResNet18VAE_2(args.latent_size, x_dim =256, nc = 3, decoder = args.decoder ).to(device)
+        model = ResNet18VAE_2(args.latent_size, x_dim=256, nc=3).to(device)
         # TODO Understand why to choose a specific target layer
-    print("layer issss", args.target_layer)
+
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
-    mu_avg, logvar_avg = 0, 1
+    mu_avg, logvar_avg = (0, 1)
     gcam = GradCAM(model, target_layer=args.target_layer, device=device)
-    test_index=0
+    test_index = 0
 
     # Generate attention maps
     for batch_idx, (x, y) in enumerate(test_loader):
@@ -126,11 +125,13 @@ def main(args):
         # Visualize and save attention maps
         for i in range(x.size(0)):
             # for every image in batch
+            raw_image = x[i]
 
-            raw_image = x[i] * 255.0
+            # Normalize image to
+            raw_image = raw_image - torch.min(raw_image)
+            raw_image = raw_image / torch.max(raw_image)
 
-            # ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()[:,:,:3]
-            ndarr = raw_image.permute(1, 2, 0).cpu().byte().numpy()
+            ndarr = raw_image.permute(1, 2, 0).cpu().numpy() * 255
             im = Image.fromarray(ndarr.astype(np.uint8))
             im_path = args.result_dir
             if not os.path.exists(im_path):
