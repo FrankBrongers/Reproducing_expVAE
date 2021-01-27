@@ -1,10 +1,24 @@
+# from code.test_expVAE import main
 import torch
 import torch.nn as nn
+import math
 
 from functools import reduce
 from operator import mul
 
 from torch.nn.modules.batchnorm import BatchNorm2d
+
+
+def get_linear_size(input_size, num_layers):
+    """
+    Returns the resulting linear layer size 
+    Inputs:
+        input_size - Input image size (int)
+        num_layers - The number of conv layers containg strides (int)
+    """
+    for i in range(num_layers):
+        input_size = math.floor(input_size / 2)
+    return input_size
 
 
 class Flatten(nn.Module):
@@ -39,30 +53,47 @@ class Unflatten(nn.Module):
 
 class ConvVAE_ped1(nn.Module):
 
-    def __init__(self, latent_size):
+    def __init__(self, latent_size, input_size, layer_config, batch_norm=True):
         """
         Encoder and Decoder network
         Inputs:
-            latent_size - Dimensionality of the latent vector
+            latent_size - Dimensionality of the latent vector (int)
+            input_size - Input image size (int)
+            layer_config - List of the conv layer configuration [int*, int, int, int]
+                            * is the number of colourbands
+            batch_norm - Whether to use batch normalization or not (Bool)
         """
         super(ConvVAE_ped1, self).__init__()
 
         self.latent_size = latent_size
-
-        self.encoder = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=4, stride=2, padding=1),
-            nn.ReLU(),
-
-            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
-            nn.ReLU(),
-
-            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
-            nn.ReLU(),
+        self.input_size = input_size
+        self.config = layer_config
+        self.batch_norm = batch_norm
             
-            Flatten(),
-            nn.Linear(36864, 1024),
-            nn.ReLU()
-        )
+
+        self.encoder = nn.Sequential()
+        # Layer 1
+        self.encoder.add_module("Conv1", nn.Conv2d(self.config[0], self.config[1], kernel_size=4, stride=2, padding=1))
+        if self.batch_norm:
+            self.encoder.add_module("Bn1", nn.BatchNorm2d(self.config[0]))
+        self.encoder.add_module("ReLU1", nn.ReLU())
+
+        # Layer 2
+        self.encoder.add_module("Conv2", nn.Conv2d(self.config[1], self.config[2], kernel_size=4, stride=2, padding=1))
+        if self.batch_norm:
+            self.encoder.add_module("Bn2", nn.BatchNorm2d(self.config[2]))
+        self.encoder.add_module("ReLU2", nn.ReLU())
+
+        # Layer 3
+        self.encoder.add_module("Conv3", nn.Conv2d(self.config[2], self.config[3], kernel_size=4, stride=2, padding=1))
+        if self.batch_norm:
+            self.encoder.add_module("Bn3", nn.BatchNorm2d(self.config[3]))
+        self.encoder.add_module("ReLU3", nn.ReLU())
+
+        # From conv to latent space
+        self.encoder.add_module("Flatten", Flatten())
+        self.encoder.add_module("Linear", nn.Linear(36864, 1024))
+        self.encoder.add_module("ReLU", nn.ReLU())
 
         # hidden => mu
         self.fc1 = nn.Linear(1024, self.latent_size)
@@ -70,23 +101,34 @@ class ConvVAE_ped1(nn.Module):
         # hidden => logvar
         self.fc2 = nn.Linear(1024, self.latent_size)
 
-        self.decoder = nn.Sequential(
-            nn.Linear(self.latent_size, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, 36864),
-            nn.ReLU(),
-            Unflatten(256, 12, 12),
 
-            nn.ReLU(),
-            nn.ConvTranspose2d(256, 128, kernel_size=5, stride=2, padding=1),
+        self.decoder = nn.Sequential()
+        # From latent space to conv
+        self.decoder.add_module("Linear1", nn.Linear(self.latent_size, 1024))
+        self.decoder.add_module("ReLU1", nn.ReLU())
+        self.decoder.add_module("Linear2", nn.Linear(1024, 36864))
+        self.decoder.add_module("ReLU1", nn.ReLU())
+        self.decoder.add_module("Unflatten", Unflatten(self.config[3], 12, 12))
 
-            nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
-            
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1),
-            nn.Sigmoid()
-        )
+        # Layer 3
+        self.decoder.add_module("ReLU3", nn.ReLU())
+        if self.batch_norm:
+            self.encoder.add_module("Bn3", nn.BatchNorm2d(self.config[3]))
+        self.decoder.add_module("Conv3", nn.ConvTranspose2d(self.config[3], self.config[2], kernel_size=5, stride=2, padding=1))
+
+        # Layer 2
+        self.decoder.add_module("ReLU2", nn.ReLU())
+        if self.batch_norm:
+            self.encoder.add_module("Bn2", nn.BatchNorm2d(self.config[2]))
+        self.decoder.add_module("Conv3", nn.ConvTranspose2d(self.config[2], self.config[1], kernel_size=4, stride=2, padding=1))
+        
+        # Layer 1
+        self.decoder.add_module("ReLU1", nn.ReLU())
+        if self.batch_norm:
+            self.encoder.add_module("Bn2", nn.BatchNorm2d(self.config[3]))
+        self.decoder.add_module("Conv3", nn.ConvTranspose2d(self.config[1], self.config[0], kernel_size=4, stride=2, padding=1))
+
+        self.decoder.add_module("Sigmoid", nn.Sigmoid())
 
     def encode(self, x):
         """
