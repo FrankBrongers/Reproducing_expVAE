@@ -240,10 +240,13 @@ class ResNet18VAE_3(nn.Module):
 
 
     def mvtec_normalize(self, x):
+        # print(x.size())
         norm = self.mv_normalize(x)
-        print(norm)
-        norm = [self.mv_normalize(xi) for xi in x]
-        norm = torch.FloatTensor(norm)
+        # print(norm)
+        # norm = [self.mv_normalize(xi)for xi in x]
+        # print(norm, norm[0].size())
+        # norm = [xi.item() for xi in x]
+        # norm = torch.FloatTensor(norm)
 
         return norm
 

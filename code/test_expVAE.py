@@ -11,6 +11,8 @@ from models.vanilla import ConvVAE
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 from models.resnet18_2 import ResNet18VAE_2
+from models.resnet18_3 import ResNet18VAE_3
+
 
 import OneClassMnist
 import Ped1_loader
@@ -99,6 +101,9 @@ def main(args):
     elif args.model == 'resnet18_2':
         model = ResNet18VAE_2(args.latent_size, x_dim =256, nc = 3, decoder = args.decoder ).to(device)
         # TODO Understand why to choose a specific target layer
+    elif args.model == 'resnet18_3':
+        imshape = [64, 3, 256, 256 ]
+        model = ResNet18VAE_3(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
     print("layer issss", args.target_layer)
     # Load model
     checkpoint = torch.load(args.model_path)
@@ -241,7 +246,7 @@ if __name__ == '__main__':
                         help='select a target layer for generating the attention map.')
     parser.add_argument('--decoder', type=str, default='vanilla',
                         help='only for resnet VAE select one of following: resnet, vanilla')
-    parser.add_argument('--no_auroc', default=True, action='store_false', 
+    parser.add_argument('--no_auroc', default=True, action='store_false',
                         help='if this argument is passed, the auroc score will not be computed')
 
     args = parser.parse_args()
