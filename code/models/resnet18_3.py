@@ -224,7 +224,7 @@ class ResNet18VAE_3(nn.Module):
         self.mv_normalize = T.Normalize(mean = self.mean, std = self.std)
 
     def forward(self, x):
-        x = self.mvtec_normalize(x)
+        # x = self.mvtec_normalize(x)
         mean, logvar = self.encoder(x)
         z = self.reparameterize(mean, logvar)
         dec_val = self.decoder(z)
