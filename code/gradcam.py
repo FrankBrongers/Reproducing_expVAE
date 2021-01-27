@@ -122,8 +122,8 @@ class GradCAM(PropBase):
 
         self.alpha = self.weights.to(self.device)        # Leons attempts
         gcam = self.activation * self.alpha
-        gcam = torch.mean(gcam, dim = 1)[:,None,:,:]
         gcam = torch.abs(gcam)
+        gcam = torch.mean(gcam, dim = 1)[:,None,:,:]
         # gcam = F.relu(gcam)
 
         # self.activation = self.activation[None, :, :, :, :]
