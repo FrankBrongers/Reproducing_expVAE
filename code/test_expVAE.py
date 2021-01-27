@@ -19,7 +19,7 @@ import Ped1_loader
 import MVTec_loader as mvtec
 
 from gradcam import GradCAM
-# import cv2
+import cv2
 from PIL import Image
 from torchvision.utils import save_image, make_grid
 

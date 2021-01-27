@@ -118,8 +118,12 @@ def save_checkpoint(state, is_best, outdir, args):
     """
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-    checkpoint_file = os.path.join(outdir, f"{state['model']}_"+str(args.decoder) +"_checkpoint.pth")
-    best_file = os.path.join(outdir, f"{state['model']}_best.pth")
+    if args.dataset == "mvtec_ad":
+            checkpoint_file = os.path.join(outdir, f"{state['model']}_mvtecClass_"+str(args.one_class) +"_checkpoint.pth")
+            best_file = os.path.join(outdir, f"{state['model']}_mvtecClass_"+str(args.one_class)+"_best.pth")
+    else:
+        checkpoint_file = os.path.join(outdir, f"{state['model']}_"+str(args.decoder) +"_checkpoint.pth")
+        best_file = os.path.join(outdir, f"{state['model']}_best.pth")
     torch.save(state, checkpoint_file)
     if is_best:
         shutil.copyfile(checkpoint_file, best_file)
@@ -150,7 +154,7 @@ def main(args):
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         imshape = [64, 3, 256, 256 ]
-        class_name = mvtec.CLASS_NAMES[5]   # nuts
+        class_name = mvtec.CLASS_NAMES[args.one_class]   # nuts
         train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
 
@@ -159,9 +163,9 @@ def main(args):
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
-    test_loader = torch.utils.data.DataLoader(
-        test_dataset,
-        batch_size=args.batch_size, shuffle=True, **kwargs)
+    # test_loader = torch.utils.data.DataLoader(
+    #     test_dataset,
+    #     batch_size=args.batch_size, shuffle=True, **kwargs)
 
     # Select a model architecture
     if args.model == 'vanilla':
@@ -211,12 +215,12 @@ def main(args):
                 save_image(combi.cpu(), os.path.join(save_dir,str(args.decoder) +"combi_"+ str(epoch) + '.png'))
 
         train_loss = train(model, train_loader, optimizer, args)
-        test_loss = test(model, test_loader,args)
+        # test_loss = test(model, test_loader,args)
 
         # writer.add_scalar('Train Loss', train_loss, epoch)
         # writer.add_scalar('Test Loss', test_loss, epoch)
 
-        print('Epoch [%d/%d] loss: %.3f val_loss: %.3f' % (epoch + 1, args.epochs, train_loss, test_loss))
+        print('Epoch [%d/%d] loss: %.3f ' % (epoch + 1, args.epochs, train_loss))
         print(f"Lr: {optimizer.param_groups[0]['lr']}")
 
         # save trainloss plot
