@@ -82,7 +82,7 @@ def main(args):
         test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
-        class_name = mvtec.CLASS_NAMES[5]
+        class_name = mvtec.CLASS_NAMES[args.one_class]
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
