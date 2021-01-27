@@ -94,7 +94,7 @@ def main(args):
             # Generate VAE reconstruction
             x_latent_mean, _ = model.encode(x)
             x_reconstruction = model.decode(x_latent_mean)
-            x_reconstruction = x_reconstruction.unnormalize(x_reconstruction).detach().cpu().numpy() * 255
+            x_reconstruction = test_dataset.unnormalize(x_reconstruction).detach().cpu().numpy() * 255
 
         else:
             # use static reconstruction image
@@ -167,13 +167,13 @@ if __name__ == '__main__':
     # Dataset parameters
     parser.add_argument('--dataset', type=str, default='ucsd_ped1',
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
-    parser.add_argument('--image_size', type=int, default=100,
+    parser.add_argument('--image_size', type=int, default=96,
                         help='Select an image size')
 
     # AUROC parameters
 
     # Generation parameters
-    parser.add_argument('--reconstruction', type=bool, default=False,
+    parser.add_argument('--reconstruction', type=bool, default=True,
                         help='If True: use VAE reconstruction from input, else: use average reconstruction.')
 
     args = parser.parse_args()
