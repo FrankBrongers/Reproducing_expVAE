@@ -1,7 +1,8 @@
 import argparse
 import torch
 from torchvision import datasets, transforms
-from sklearn import metrics
+from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_auc_score
 
 import os
 import numpy as np
@@ -23,10 +24,10 @@ from torchvision.utils import save_image, make_grid
 import matplotlib.pyplot as plt
 
 # Initialize AUROC parameters
-test_steps = 1800 # Choose a very high number to test the whole dataset
+test_steps = 1600 # Choose a very high number to test the whole dataset
 score_range = 50 # How many threshold do you want to test?
 scores = np.zeros((score_range, 4)) # TP, TN, FP, FN
-plot_ROC = True # Plot the ROC curve or not
+plot_ROC = False # Plot the ROC curve or not
 
 save_gcam_image = True
 norm_gcam_image = True
@@ -53,7 +54,7 @@ def save_cam(image, filename, gcam):
         h, w, d = image.shape
         save_gcam = cv2.resize(gcam, (w, h))
         save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
-        save_gcam = np.asarray(save_gcam, dtype=np.float) #+ np.asarray(image, dtype=np.float)
+        save_gcam = np.asarray(save_gcam, dtype=np.float) + np.asarray(image, dtype=np.float)
         save_gcam = np.uint8(save_gcam)
         # cv2.imwrite(filename, save_gcam) # Uncomment to save the images
 
@@ -69,120 +70,75 @@ def main(args):
     """
     # Load dataset
     if args.dataset == 'mnist':
-        test_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=False, transform=transforms.ToTensor())
+        # test_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=False, transform=transforms.ToTensor())
+        print("Not implemented yet")
+        return
     elif args.dataset == 'ucsd_ped1':
         test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=96)
     elif args.dataset == 'mvtec_ad':
-        # for dataloader check: pin pin_memory, batch size 32 in original
-        class_name = mvtec.CLASS_NAMES[5]
-        test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
+        # class_name = mvtec.CLASS_NAMES[5]
+        # test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
+        print("Not implemented yet")
+        return
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
-        test_dataset,
-        batch_size=args.batch_size, shuffle=False, **kwargs)
+        test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
 
-    test_index = 0
+    prediction_stack = np.zeros((test_steps * args.batch_size, args.image_size, args.image_size))
+    gt_mask_stack = np.zeros((test_steps * args.batch_size, args.image_size, args.image_size))
 
     # Generate attention maps
     for batch_idx, (x, y) in enumerate(test_loader):
 
-        # # If image has one channel, make it three channel(need for heatmap)
-        # if x.size(1) == 1:
-        #     x = x.repeat(1, 3, 1, 1)
+        # Normalize x
+        x = x - torch.min(x)
+        x = x / torch.max(x)
 
         # Visualize and save attention maps
         for i in range(x.size(0)):
 
             # for every image in batch
-            raw_image = x[i,0]
-
-            ndarr = raw_image.cpu().numpy() * 255
-
-            # Save the original image
-            im = Image.fromarray(ndarr.astype(np.uint8))
-            im_path = args.result_dir
-            if not os.path.exists(im_path):
-                os.mkdir(im_path)
-            # im.save(os.path.join(im_path,
-            #                  "{}-origin.png".format(test_index)))
-
-            file_path = os.path.join(im_path,
-                                 "{}-attmap.png".format(test_index, ))
-            r_im = np.asarray(im)
+            ndarr = x[i,0].cpu().numpy() * 255
+            file_path = os.path.join(args.result_dir, "{}-{}-attmap.png".format(batch_idx, i))
 
             # Load average VAE generation
-            avg_gen = np.asarray(Image.open('reconstructions/ucsd_ped1_2.png').convert('L'))
+            avg_gen = np.asarray(Image.open('reconstructions/ucsd_ped1_1.png').convert('L'))
 
             # Make prediction
-            pred = np.abs(avg_gen - ndarr) / 255
-            # plt.imshow(pred, cmap='hot')
-            # plt.show()
+            pred = np.abs(avg_gen - ndarr)
 
-            r_im = np.tile(np.expand_dims(r_im, axis=2), 1)
+            # # Save heatmap
+            # stacked_im = np.tile(np.expand_dims(ndarr, axis=2), 1)
+            # pred = save_cam(stacked_im, file_path, pred)
 
-            # Save heatmap
-            pred = save_cam(r_im, file_path, pred)
+            # # Compute the correct and incorrect mask scores for all thresholds
+            # for j, score in enumerate(scores):
 
-            # Compute the correct and incorrect mask scores for all thresholds
-            for j, score in enumerate(scores):
+            #     threshold = (j) / (score_range - 1)
 
-                threshold = (j) / (score_range - 1)
-
-                # Apply the threshold
-                pred_bin = ((pred) > threshold).astype(int)
-                gt_mask = y[i,:,:,:].numpy().astype(int) 
-
-                TP = np.sum((pred_bin + gt_mask) == 2)
-                TN = np.sum((pred_bin + gt_mask) == 0)
-
-                FP = np.sum((gt_mask - pred_bin) == -1)
-                FN = np.sum((pred_bin - gt_mask) == -1)
-                # print(np.array([TP, TN, FP, FN]))
-                scores[j] += np.array([TP, TN, FP, FN])
-            test_index += 1
-
+            # Apply the threshold
+            # pred_bin = (pred > threshold)
+            gt_mask = y[i,:,:,:].numpy()
+            
+            # Add to the stacks
+            prediction_stack[batch_idx*args.batch_size + i] = pred
+            gt_mask_stack[batch_idx*args.batch_size + i] = gt_mask
 
         # Stop parameter
-        if batch_idx == test_steps:
+        if batch_idx == (test_steps - 1):
             print("Reached the maximum number of steps")
             break
 
-    print(np.sum(scores, axis=0))
-
-    # Compute AUROC
-    TPR_list = []
-    FPR_list = []
-    half_list_x = []
-    half_list_y = []
-    best_threshold_idx = 0
-
-    for i, score in enumerate(scores):
-        TP, TN, FP, FN = (score[0], score[1], score[2], score[3])
-
-        TPR = TP / (TP + FN)
-        FPR = FP / (FP + TN)
-
-        TPR_list.append(TPR)
-        FPR_list.append(FPR)
-
-        half_list_x.append(i / score_range)
-        half_list_y.append(i / score_range)
-
-        # Check if current threshold is the best
-        if (TPR - FPR) > (TPR_list[best_threshold_idx] - FPR_list[best_threshold_idx]):
-            best_threshold_idx = i
-
-    print(f"AUC: {metrics.auc(FPR_list, TPR_list)} Best threshold: {best_threshold_idx / score_range}")
+    auc = roc_auc_score(gt_mask_stack.flatten().astype(np.uint8), prediction_stack.astype(np.uint8).flatten())
+    print(f"AUROC score: {auc}")
 
     if plot_ROC:
-        plt.plot(FPR_list, TPR_list, label="ROC")
-        plt.plot(half_list_x, half_list_y, '--')
-        plt.scatter(FPR_list[best_threshold_idx], TPR_list[best_threshold_idx])
+        tpr, tnr, _ =  roc_curve(gt_mask_stack.astype(np.uint8).flatten(), prediction_stack.astype(np.uint8).flatten())
+        plt.plot(tpr, tnr, label="ROC")
         plt.xlabel("FPR")
         plt.ylabel("TPR")
         plt.legend()
-        # plt.savefig("./test_results/auroc_" + str(args.target_layer)+ ".png")
         plt.show()
     return
 
@@ -202,17 +158,11 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', default=1, type=int,
                         help='Number of workers to use in the data loaders.')
 
-    # model option
-    parser.add_argument('--model', type=str, default='vanilla_ped1',
-                        help='select one of the following models: vanilla, vanilla_ped1, resnet18')
-    parser.add_argument('--latent_size', type=int, default=32, metavar='N',
-                        help='latent vector size of encoder')
-    parser.add_argument('--model_path', type=str, default='/media/bob/B.Leijnse/vanilla_ped1_best_100.pth', metavar='DIR',
-                        help='pretrained model directory')
-
     # Dataset parameters
     parser.add_argument('--dataset', type=str, default='ucsd_ped1',
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
+    parser.add_argument('--image_size', type=int, default=100,
+                        help='Select an image size')
 
     args = parser.parse_args()
 
