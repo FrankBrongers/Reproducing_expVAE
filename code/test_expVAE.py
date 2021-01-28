@@ -75,13 +75,15 @@ def main(args):
     if args.dataset == 'mnist':
         test_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
+        # TODO: remove by boberino
+        test_steps = test_steps * args.batch_size
         test_dataset = Ped1_loader.UCSDAnomalyDataset('./data', train=False, resize=args.image_size)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
-
         class_name = mvtec.CLASS_NAMES[args.one_class]
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
         test_steps = len(test_dataset)
+
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
@@ -109,8 +111,8 @@ def main(args):
     gcam = GradCAM(model, target_layer=args.target_layer, device=device)
     test_index = 0
 
-    prediction_stack = np.zeros((test_steps * args.batch_size, imshape[-1], imshape[-1]), dtype=np.float32)
-    gt_mask_stack = np.zeros((test_steps * args.batch_size, imshape[-1], imshape[-1]), dtype=np.uint8)
+    prediction_stack = np.zeros((test_steps, imshape[-1], imshape[-1]), dtype=np.float32)
+    gt_mask_stack = np.zeros((test_steps, imshape[-1], imshape[-1]), dtype=np.uint8)
 
 
     # Generate attention maps
@@ -153,10 +155,11 @@ def main(args):
             prediction_stack[batch_idx*args.batch_size + i] = prediction
             gt_mask_stack[batch_idx*args.batch_size + i] = y[i]
 
+        # print("step_size test_steps", batch_idx, test_steps)
         # Stop parameter
-        if batch_idx == (test_steps - 1):
-            print("Reached the maximum number of steps")
-            break
+        # if batch_idx * args.batch_size >= (test_steps - 1):
+        #     print("Reached the maximum number of steps")
+        #     break
 
     # Compute area under the ROC score
     auc = roc_auc_score(gt_mask_stack.flatten(), prediction_stack.flatten())
