@@ -7,7 +7,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from models.vanilla import ConvVAE
+from models.vanilla_mnist import ConvVAE_mnist
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 from models.resnet18_2 import ResNet18VAE_2
@@ -85,10 +85,10 @@ def main(args):
         test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
 
     # Select a model architecture
-    if args.model == 'vanilla':
-        model = ConvVAE(args.latent_size).to(device)
+    if args.model == 'vanilla_mnist':
+        model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
-        model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 192, 144, 96]).to(device)
+        model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 192, 144, 96], batch_norm=True).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
         # TODO Understand why to choose a specific target layer
@@ -120,9 +120,6 @@ def main(args):
         gcam_map = gcam.generate()
         gcam_max = torch.max(gcam_map).item()
 
-        # Unnormalize for saving
-        x = test_dataset.unnormalize(x)
-
         # If image has one channel, make it three channel(need for heatmap)
         if x.size(1) == 1:
             x = x.repeat(1, 3, 1, 1)
@@ -151,6 +148,10 @@ def main(args):
         if batch_idx == (test_steps - 1):
             print("Reached the maximum number of steps")
             break
+
+    # Stop of dataset is mnist because there aren't GTs available
+    if args.dataset == 'mnist':
+        return
 
     # Compute area under the ROC score
     auc = roc_auc_score(gt_mask_stack.flatten(), prediction_stack.flatten())
