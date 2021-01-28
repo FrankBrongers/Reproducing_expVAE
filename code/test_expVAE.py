@@ -30,7 +30,7 @@ scores = np.zeros((score_range, 4)) # TP, TN, FP, FN
 plot_ROC = False # Plot the ROC curve or not
 
 save_gcam_image = True
-norm_gcam_image = True
+norm_gcam_image = False
 
 def save_cam(image, filename, gcam, gcam_max = 1):
     """
