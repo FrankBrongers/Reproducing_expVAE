@@ -23,11 +23,11 @@ from torchvision.utils import save_image, make_grid
 import matplotlib.pyplot as plt
 
 # Initialize AUROC parameters
-test_steps = 100 # Choose a very high number to test the whole dataset
+test_steps = 400
 plot_ROC = True # Plot the ROC curve or not
 
 save_gcam_image = True
-norm_gcam_image = False
+norm_gcam_image = True
 
 def save_gradcam(image, filename, gcam, gcam_max = 1):
     """
@@ -82,7 +82,7 @@ def main(args):
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
+        test_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
     # Select a model architecture
     if args.model == 'vanilla_mnist':
@@ -96,12 +96,12 @@ def main(args):
         model = ResNet18VAE_2(args.latent_size, x_dim=256, nc=3).to(device)
         # TODO Understand why to choose a specific target layer
 
+
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
     mu_avg, logvar_avg = (0, 1)
     gcam = GradCAM(model, target_layer=args.target_layer, device=device)
-    test_index = 0
 
     prediction_stack = np.zeros((test_steps * args.batch_size, args.image_size, args.image_size), dtype=np.float32)
     gt_mask_stack = np.zeros((test_steps * args.batch_size, args.image_size, args.image_size), dtype=np.uint8)
@@ -128,6 +128,13 @@ def main(args):
         for i in range(x.size(0)):
             x_arr = x[i].permute(1, 2, 0).cpu().numpy() * 255
             x_im = Image.fromarray(x_arr.astype(np.uint8))
+
+            # Get the gradcam for this image
+            prediction = gcam_map[i].squeeze().cpu().data.numpy()
+
+            # Add prediction and mask to the stacks
+            prediction_stack[batch_idx*args.batch_size + i] = prediction
+            gt_mask_stack[batch_idx*args.batch_size + i] = y[i]
             
             if save_gcam_image:
                 im_path = args.result_dir
@@ -135,14 +142,7 @@ def main(args):
                     os.mkdir(im_path)
                 x_im.save(os.path.join(im_path, "{}-{}-origin.png".format(batch_idx, i)))
                 file_path = os.path.join(im_path, "{}-{}-attmap.png".format(batch_idx, i))
-
-            # Get the gradcam for this image
-            prediction = gcam_map[i].squeeze().cpu().data.numpy()
-            prediction = save_gradcam(x_arr, file_path, prediction, gcam_max = gcam_max)
-
-            # Add prediction and mask to the stacks
-            prediction_stack[batch_idx*args.batch_size + i] = prediction
-            gt_mask_stack[batch_idx*args.batch_size + i] = y[i]
+                _ = save_gradcam(x_arr, file_path, prediction, gcam_max = gcam_max)
 
         # Stop parameter
         if batch_idx == (test_steps - 1):
@@ -189,7 +189,7 @@ if __name__ == '__main__':
                         help='latent vector size of encoder')
     parser.add_argument('--model_path', type=str, default='/media/bob/OS/Users/boble/Documents/AI - year 1/FACT-AI/vanilla_ped1_best_120_deeper.pth', metavar='DIR',
                         help='pretrained model directory')
-    parser.add_argument('--image_size', type=int, default=96,
+    parser.add_argument('--image_size', type=int, default=100,
                         help='Select an image size')
 
     # Dataset parameters

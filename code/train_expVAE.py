@@ -10,7 +10,7 @@ import os
 import shutil
 import numpy as np
 
-from models.vanilla import ConvVAE_mnist
+from models.vanilla_mnist import ConvVAE_mnist
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 from models.resnet18_2 import ResNet18VAE_2
@@ -22,19 +22,9 @@ import OneClassMnist
 import Ped1_loader
 import MVTec_loader as mvtec
 import matplotlib
-# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from tensorboardX import SummaryWriter
-# Run the folloring command to acces tensorboard: tensorboard --logdir runs
-from torchvision import transforms as T
 
-
-# def unnormalize(x):
-#     mean = np.array([0.4305, 0.3999, 0.3900])
-#     std = np.array([0.1822, 0.1733, 0.1624])
-#     inv_normalize = T.Normalize(mean = -mean/std, std = 1/std)
-#     unnorm = inv_normalize(x)
-#     return unnorm
 
 def loss_function(recon_x, x, mu, logvar, ):
     """
@@ -49,10 +39,6 @@ def loss_function(recon_x, x, mu, logvar, ):
     rc = recon_x.shape[1]
     # if rc == 1:
     if True:
-        # Normalize x
-        x = x - torch.min(x)
-        x = x / torch.max(x)
-
         rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
     else:
         rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
@@ -125,7 +111,7 @@ def save_checkpoint(state, is_best, outdir, args):
     """
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-    checkpoint_file = os.path.join(outdir, f"{state['model']}_"+str(args.decoder) +"_checkpoint.pth")
+    checkpoint_file = os.path.join(outdir, f"{state['model']}_"+str(args.decoder) +"checkpoint.pth")
     best_file = os.path.join(outdir, f"{state['model']}_best.pth")
     torch.save(state, checkpoint_file)
     if is_best:
@@ -152,8 +138,8 @@ def main(args):
         test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
         imshape = [64, 1, args.image_size, args.image_size]
-        train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=args.image_size)
-        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=args.image_size)
+        train_dataset = Ped1_loader.UCSDAnomalyDataset('./data/', train=True, resize=args.image_size)
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('./data', train=False, resize=args.image_size)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         imshape = [64, 3, args.image_size, args.image_size ]
@@ -174,7 +160,7 @@ def main(args):
     if args.model == 'vanilla':
         model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
-        model = ConvVAE_ped1(args.latent_size).to(device)
+        model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 64, 128, 256], batch_norm=True).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
     elif args.model == 'resnet18_2':
@@ -184,7 +170,7 @@ def main(args):
 
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 100], gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[], gamma=0.1)
 
     start_epoch = 0
     best_train_loss = np.finfo('f').max
@@ -213,7 +199,7 @@ def main(args):
                 testim =  next(iter(train_loader))[0][0][None,:].to(device)
                 gen_testim = model(testim)[0]
 
-                combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()],  padding=100)
+                combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()], padding=100)
                 save_image(combi.cpu(), os.path.join(save_dir,str(args.decoder) +"combi_"+ str(epoch) + '.png'))
 
         train_loss = train(model, train_loader, optimizer, args)
@@ -266,7 +252,7 @@ if __name__ == '__main__':
                         help='path to latest checkpoint (default: None')
 
     # Training parameters
-    parser.add_argument('--batch_size', type=int, default=2, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=32, metavar='N',
                         help='input batch size for training (default: 128)')
     parser.add_argument('--learning_rate', default=0.0001, type=float,
                         help='Learning rate to use')
