@@ -235,8 +235,7 @@ def main(args):
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
             save_image(sample.view(imshape), os.path.join(save_dir,str(args.decoder) +'sample_' + str(epoch) + '.png'))
-
-        # scheduler.step()
+        scheduler.step()
 
 if __name__ == '__main__':
 
@@ -282,5 +281,9 @@ if __name__ == '__main__':
                         help='only for resnet VAE select one of following: resnet, vanilla')
 
     args = parser.parse_args()
+
+    # If no argument for result directory is specified, set it to data and model name
+    if args.result_dir is None:
+        args.result_dir = 'train_results/{}_{}'.format(args.dataset, args.model)
 
     main(args)
