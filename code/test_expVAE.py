@@ -29,7 +29,7 @@ test_steps = 100 # Choose a very high number to test the whole dataset
 plot_ROC = True # Plot the ROC curve or not
 
 save_gcam_image = True
-norm_gcam_image = False
+# norm_gcam_image = True
 
 def save_gradcam(image, filename, gcam, gcam_max = 1):
     """
@@ -40,13 +40,13 @@ def save_gradcam(image, filename, gcam, gcam_max = 1):
         gcam - generated attention map of image
     """
     # Normalize
-    if norm_gcam_image:
-        gcam = gcam - np.min(gcam)
-        gcam = gcam / np.max(gcam)
-    else:
-        # Divide by a hand-chosen maximum value
-        gcam = gcam / gcam_max
-        gcam = np.clip(gcam, 0.0, 1.0)
+    # if norm_gcam_image:
+    gcam = gcam - np.min(gcam)
+    gcam = gcam / np.max(gcam)
+    # else:
+    #     # Divide by a hand-chosen maximum value
+    #     gcam = gcam / gcam_max
+    #     gcam = np.clip(gcam, 0.0, 1.0)
 
     # Save image
     if save_gcam_image:
@@ -58,7 +58,7 @@ def save_gradcam(image, filename, gcam, gcam_max = 1):
         save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
         save_gcam = np.uint8(save_gcam)
         cv2.imwrite(filename, save_gcam) # Uncomment to save the images
-    return gcam
+    return
 
 def main(args):
     """
@@ -127,7 +127,7 @@ def main(args):
         gcam_max = torch.max(gcam_map).item()
 
         # Unnormalize for saving
-        x = test_dataset.unnormalize(x)
+        # x = test_dataset.unnormalize(x)
 
         # If image has one channel, make it three channel(need for heatmap)
         if x.size(1) == 1:
@@ -147,7 +147,7 @@ def main(args):
 
             # Get the gradcam for this image
             prediction = gcam_map[i].squeeze().cpu().data.numpy()
-            prediction = save_gradcam(x_arr, file_path, prediction, gcam_max = gcam_max)
+            save_gradcam(x_arr, file_path, prediction, gcam_max = gcam_max)
 
             # Add prediction and mask to the stacks
             prediction_stack[batch_idx*args.batch_size + i] = prediction
@@ -162,7 +162,7 @@ def main(args):
     auc = roc_auc_score(gt_mask_stack.flatten(), prediction_stack.flatten())
     print(f"AUROC score: {auc}")
 
-    if plot_ROC:args.image_size
+    if plot_ROC:
         tpr, tnr, _ =  roc_curve(gt_mask_stack.flatten(), prediction_stack.flatten())
         plt.plot(tpr, tnr, label="ROC")
         plt.xlabel("FPR")
