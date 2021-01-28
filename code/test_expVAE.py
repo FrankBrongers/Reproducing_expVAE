@@ -184,7 +184,7 @@ if __name__ == '__main__':
 
     # Model option
     parser.add_argument('--model', type=str, default='vanilla_ped1',
-                        help='select one of the following models: vanilla, vanilla_ped1, resnet18')
+                        help='select one of the following models: vanilla_mnist, vanilla_ped1, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
     parser.add_argument('--model_path', type=str, default='/media/bob/OS/Users/boble/Documents/AI - year 1/FACT-AI/vanilla_ped1_best_120_deeper.pth', metavar='DIR',
