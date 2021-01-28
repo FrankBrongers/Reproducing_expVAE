@@ -167,7 +167,7 @@ def main(args):
         plt.xlabel("FPR")
         plt.ylabel("TPR")
         plt.legend()
-        plt.show()
+        plt.savefig("./test_results/auroc_" + str(args.target_layer)+ str(args.one_class)+ ".png")
     return
 
 
