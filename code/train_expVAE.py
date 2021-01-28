@@ -10,7 +10,7 @@ import os
 import shutil
 import numpy as np
 
-from models.vanilla import ConvVAE
+from models.vanilla import ConvVAE_mnist
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 from models.resnet18_2 import ResNet18VAE_2
@@ -146,17 +146,17 @@ def main(args):
     # Load dataset
     if args.dataset == 'mnist':
         # for generating images
-        imshape = [64, 1, 28, 28]
+        imshape = [64, 1, args.image_size, args.image_size]
         one_class = args.one_class # Choose the inlier digit to be 3
         train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
         test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
-        imshape = [64, 1, 100, 100]
-        train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=100)
-        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
+        imshape = [64, 1, args.image_size, args.image_size]
+        train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=args.image_size)
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=args.image_size)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
-        imshape = [64, 3, 256, 256 ]
+        imshape = [64, 3, args.image_size, args.image_size ]
         class_name = mvtec.CLASS_NAMES[5]   # nuts
         train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
@@ -172,7 +172,7 @@ def main(args):
 
     # Select a model architecture
     if args.model == 'vanilla':
-        model = ConvVAE(args.latent_size).to(device)
+        model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
         model = ConvVAE_ped1(args.latent_size).to(device)
     elif args.model == 'resnet18':
@@ -279,9 +279,11 @@ if __name__ == '__main__':
 
     # Model parameters
     parser.add_argument('--model', type=str, default='vanilla_ped1',
-                        help='select one of the following models: vanilla, resnet18, vanilla_ped1')
+                        help='select one of the following models: vanilla_mnist, resnet18, vanilla_ped1')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
+    parser.add_argument('--image_size', type=int, default=100,
+                        help='Select an image size')                        
 
     # Dataset parameters
     parser.add_argument('--dataset', type=str, default='ucsd_ped1',
