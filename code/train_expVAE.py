@@ -47,8 +47,15 @@ def loss_function(recon_x, x, mu, logvar, ):
     """
     B = recon_x.shape[0]
     rc = recon_x.shape[1]
-    rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
-    # rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
+    # if rc == 1:
+    if True:
+        # Normalize x
+        x = x - torch.min(x)
+        x = x / torch.max(x)
+
+        rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
+    else:
+        rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
 
     return rec_loss + KLD
@@ -148,9 +155,9 @@ def main(args):
         train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
         test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
-        imshape = [64, 1, 96, 96]
-        train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=96)
-        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=96)
+        imshape = [64, 1, 100, 100]
+        train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=100)
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         imshape = [64, 3, 256, 256 ]
@@ -181,8 +188,7 @@ def main(args):
 
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40, 90], gamma=0.5)
-    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 80], gamma=0.1)
+    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 100], gamma=0.1)
 
     start_epoch = 0
     best_train_loss = np.finfo('f').max
@@ -266,9 +272,9 @@ if __name__ == '__main__':
     # Training parameters
     parser.add_argument('--batch_size', type=int, default=2, metavar='N',
                         help='input batch size for training (default: 128)')
-    parser.add_argument('--learning_rate', default=1e-3, type=float,
+    parser.add_argument('--learning_rate', default=0.0001, type=float,
                         help='Learning rate to use')
-    parser.add_argument('--epochs', type=int, default=40, metavar='N',
+    parser.add_argument('--epochs', type=int, default=512, metavar='N',
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
