@@ -78,9 +78,10 @@ def main(args):
         test_dataset = Ped1_loader.UCSDAnomalyDataset('./data', train=False, resize=args.image_size)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
+
         class_name = mvtec.CLASS_NAMES[args.one_class]
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
-
+        test_steps = len(test_dataset)
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
