@@ -1,22 +1,19 @@
-# from code.test_expVAE import main
 import torch
 import torch.nn as nn
 import math
 
-from functools import reduce
-from operator import mul
-
 from torch.nn.modules.batchnorm import BatchNorm2d
+import torchvision.transforms as transforms
 
 
-def get_linear_size(input_size, num_layers):
+def get_smalles_feature_map_size(input_size):
     """
     Returns the resulting linear layer size 
     Inputs:
         input_size - Input image size (int)
         num_layers - The number of conv layers containg strides (int)
     """
-    for i in range(num_layers):
+    for _ in range(3):
         input_size = math.floor(input_size / 2)
     return input_size
 
@@ -53,7 +50,7 @@ class Unflatten(nn.Module):
 
 class ConvVAE_ped1(nn.Module):
 
-    def __init__(self, latent_size, input_size, layer_config, batch_norm=True):
+    def __init__(self, latent_size, input_size, layer_config, batch_norm=True, ):
         """
         Encoder and Decoder network
         Inputs:
@@ -69,66 +66,105 @@ class ConvVAE_ped1(nn.Module):
         self.input_size = input_size
         self.config = layer_config
         self.batch_norm = batch_norm
-            
 
-        self.encoder = nn.Sequential()
-        # Layer 1
-        self.encoder.add_module("Conv1", nn.Conv2d(self.config[0], self.config[1], kernel_size=4, stride=2, padding=1))
+        self.dataset_mean = 0.3750352255196134
+        self.dataset_std = 0.20129592430286292
+
+        self.mean_std_transform = transforms.Compose([
+                transforms.Normalize(mean=(self.dataset_mean,), std=(self.dataset_std,))
+                ])
+
+        sfm = get_smalles_feature_map_size(self.input_size)
+
         if self.batch_norm:
-            self.encoder.add_module("Bn1", nn.BatchNorm2d(self.config[0]))
-        self.encoder.add_module("ReLU1", nn.ReLU())
+            # Initialize the VAE without batch normalization
+            self.encoder = nn.Sequential(
+                nn.Conv2d(self.config[0], self.config[1], kernel_size=4, stride=2, padding=1),
+                BatchNorm2d(self.config[1]),
+                nn.ReLU(),
 
-        # Layer 2
-        self.encoder.add_module("Conv2", nn.Conv2d(self.config[1], self.config[2], kernel_size=4, stride=2, padding=1))
-        if self.batch_norm:
-            self.encoder.add_module("Bn2", nn.BatchNorm2d(self.config[2]))
-        self.encoder.add_module("ReLU2", nn.ReLU())
+                nn.Conv2d(self.config[1], self.config[2], kernel_size=4, stride=2, padding=1),
+                BatchNorm2d(self.config[2]),
+                nn.ReLU(),
 
-        # Layer 3
-        self.encoder.add_module("Conv3", nn.Conv2d(self.config[2], self.config[3], kernel_size=4, stride=2, padding=1))
-        if self.batch_norm:
-            self.encoder.add_module("Bn3", nn.BatchNorm2d(self.config[3]))
-        self.encoder.add_module("ReLU3", nn.ReLU())
+                nn.Conv2d(self.config[2], self.config[3], kernel_size=4, stride=2, padding=1),
+                BatchNorm2d(self.config[3]),
+                nn.ReLU(),
+                
+                Flatten(),
+                nn.Linear(self.config[3] * sfm**2, 1024),
+                nn.ReLU()
+            )
 
-        # From conv to latent space
-        self.encoder.add_module("Flatten", Flatten())
-        self.encoder.add_module("Linear", nn.Linear(36864, 1024))
-        self.encoder.add_module("ReLU", nn.ReLU())
+            # hidden => mu
+            self.fc1 = nn.Linear(1024, self.latent_size)
 
-        # hidden => mu
-        self.fc1 = nn.Linear(1024, self.latent_size)
+            # hidden => logvar
+            self.fc2 = nn.Linear(1024, self.latent_size)
 
-        # hidden => logvar
-        self.fc2 = nn.Linear(1024, self.latent_size)
+            self.decoder = nn.Sequential(
+                nn.Linear(self.latent_size, 1024),
+                nn.ReLU(),
+                nn.Linear(1024, self.config[3] * sfm**2),
+                nn.ReLU(),
+                Unflatten(self.config[3], sfm, sfm),
+
+                nn.ReLU(),
+                BatchNorm2d(self.config[3]),
+                nn.ConvTranspose2d(self.config[3], self.config[2], kernel_size=4, stride=2, padding=1),
+
+                nn.ReLU(),
+                BatchNorm2d(self.config[2]),
+                nn.ConvTranspose2d(self.config[2], self.config[1], kernel_size=4, stride=2, padding=1),
+                
+                nn.ReLU(),
+                BatchNorm2d(self.config[1]),
+                nn.ConvTranspose2d(self.config[1], self.config[0], kernel_size=4, stride=2, padding=1),
+                nn.Sigmoid()
+            )
+        else:
+            # Initialize the VAE without batch normalization
+            self.encoder = nn.Sequential(
+                nn.Conv2d(self.config[0], self.config[1], kernel_size=4, stride=2, padding=1),
+                nn.ReLU(),
+
+                nn.Conv2d(self.config[1], self.config[2], kernel_size=4, stride=2, padding=1),
+                nn.ReLU(),
+
+                nn.Conv2d(self.config[2], self.config[3], kernel_size=4, stride=2, padding=1),
+                BatchNorm2d(self.config[3]),
+                nn.ReLU(),
+                
+                Flatten(),
+                nn.Linear(self.config[3] * sfm**2, 1024),
+                nn.ReLU()
+            )
+
+            # hidden => mu
+            self.fc1 = nn.Linear(1024, self.latent_size)
+
+            # hidden => logvar
+            self.fc2 = nn.Linear(1024, self.latent_size)
+
+            self.decoder = nn.Sequential(
+                nn.Linear(self.latent_size, 1024),
+                nn.ReLU(),
+                nn.Linear(1024, self.config[3] * sfm**2),
+                nn.ReLU(),
+                Unflatten(self.config[3], sfm, sfm),
+
+                nn.ReLU(),
+                nn.ConvTranspose2d(self.config[3], self.config[2], kernel_size=4, stride=2, padding=1),
+
+                nn.ReLU(),
+                nn.ConvTranspose2d(self.config[2], self.config[1], kernel_size=4, stride=2, padding=1),
+                
+                nn.ReLU(),
+                nn.ConvTranspose2d(self.config[1], self.config[0], kernel_size=4, stride=2, padding=1),
+                nn.Sigmoid()
+            )
 
 
-        self.decoder = nn.Sequential()
-        # From latent space to conv
-        self.decoder.add_module("Linear1", nn.Linear(self.latent_size, 1024))
-        self.decoder.add_module("ReLU1", nn.ReLU())
-        self.decoder.add_module("Linear2", nn.Linear(1024, 36864))
-        self.decoder.add_module("ReLU1", nn.ReLU())
-        self.decoder.add_module("Unflatten", Unflatten(self.config[3], 12, 12))
-
-        # Layer 3
-        self.decoder.add_module("ReLU3", nn.ReLU())
-        if self.batch_norm:
-            self.encoder.add_module("Bn3", nn.BatchNorm2d(self.config[3]))
-        self.decoder.add_module("Conv3", nn.ConvTranspose2d(self.config[3], self.config[2], kernel_size=5, stride=2, padding=1))
-
-        # Layer 2
-        self.decoder.add_module("ReLU2", nn.ReLU())
-        if self.batch_norm:
-            self.encoder.add_module("Bn2", nn.BatchNorm2d(self.config[2]))
-        self.decoder.add_module("Conv3", nn.ConvTranspose2d(self.config[2], self.config[1], kernel_size=4, stride=2, padding=1))
-        
-        # Layer 1
-        self.decoder.add_module("ReLU1", nn.ReLU())
-        if self.batch_norm:
-            self.encoder.add_module("Bn2", nn.BatchNorm2d(self.config[3]))
-        self.decoder.add_module("Conv3", nn.ConvTranspose2d(self.config[1], self.config[0], kernel_size=4, stride=2, padding=1))
-
-        self.decoder.add_module("Sigmoid", nn.Sigmoid())
 
     def encode(self, x):
         """
@@ -140,6 +176,9 @@ class ConvVAE_ped1(nn.Module):
             log_var - Tensor of shape [batch_size, latent_size] representing the predicted log standard deviation
                       of the latent distributions.
         """
+        # Set normalize mean and std tot dataset mean 0 and std 1
+        x = self.mean_std_transform(x)
+
         h = self.encoder(x)
         mu, logvar = self.fc1(h), self.fc2(h)
         return mu, logvar
@@ -170,12 +209,10 @@ class ConvVAE_ped1(nn.Module):
             eps = torch.randn_like(std)
             z = eps.mul(std).add_(mu)
             return z
-        # What is the function of the else statement? Why would we need to decode mu and not z for the test data?
         else:
             return mu
 
     def reparameterize_eval(self, mu, logvar):
-        #TODO: what is the function of this function??
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return eps.mul(std).add_(mu)

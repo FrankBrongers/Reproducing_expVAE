@@ -8,8 +8,6 @@ import urllib.request
 
 from PIL import Image
 
-
-
 """
 Based on https://github.com/maksimbolonkin/video_anomaly_detection_pytorch/blob/master/ucsd_dataset.py
 """
@@ -64,11 +62,6 @@ class UCSDAnomalyDataset(data.Dataset):
                     transforms.ToTensor(),
                     ])
 
-        self.mean_transform = transforms.Compose([
-                    transforms.Normalize(mean=(self.dataset_mean,), std=(self.dataset_std,))
-                    ])
-
-
     def unnormalize(self, input):
         return input.mul_(self.dataset_std).add_(self.dataset_mean)
 
@@ -78,7 +71,6 @@ class UCSDAnomalyDataset(data.Dataset):
         with open(self.x_samples[index], 'rb') as file:
             x_frame = Image.open(file)
             x_frame = self.pil_transform(x_frame)
-            x_frame = self.mean_transform(x_frame)
         # Get y
         if self.y_samples[index]:
             with open(self.y_samples[index], 'rb') as file:
