@@ -69,9 +69,6 @@ def main(args):
 
     torch.manual_seed(args.seed)
 
-    # Load the dataset
-    one_class = args.one_class # Choose the current outlier digit to be 8
-
     # Load dataset
     if args.dataset == 'mnist':
         test_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=False, transform=transforms.ToTensor())
