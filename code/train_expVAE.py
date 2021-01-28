@@ -10,7 +10,7 @@ import os
 import shutil
 import numpy as np
 
-from models.vanilla import ConvVAE
+from models.vanilla import ConvVAE_mnist
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 from models.resnet18_2 import ResNet18VAE_2
@@ -172,7 +172,7 @@ def main(args):
 
     # Select a model architecture
     if args.model == 'vanilla':
-        model = ConvVAE(args.latent_size).to(device)
+        model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
         model = ConvVAE_ped1(args.latent_size).to(device)
     elif args.model == 'resnet18':
@@ -279,7 +279,7 @@ if __name__ == '__main__':
 
     # Model parameters
     parser.add_argument('--model', type=str, default='vanilla_ped1',
-                        help='select one of the following models: vanilla, resnet18, vanilla_ped1')
+                        help='select one of the following models: vanilla_mnist, resnet18, vanilla_ped1')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
 
