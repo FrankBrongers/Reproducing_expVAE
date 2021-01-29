@@ -24,6 +24,7 @@ or you can run your own experiments using the default settings or by setting tho
 ```
 python main.py --help
 ```
+The checkpoints will be saved in ```checkpoints/``` and the results in ```results/```
 
 ### Visualization
 You can create visualizations of the attention maps, for example
