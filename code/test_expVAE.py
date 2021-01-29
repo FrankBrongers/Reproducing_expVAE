@@ -1,7 +1,7 @@
 import argparse
 import torch
 from torchvision import datasets, transforms
-from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.metrics import roc_curve, roc_auc_score, jaccard_score
 
 import os
 import numpy as np
@@ -147,20 +147,40 @@ def main(args):
         #     break
 
     # Stop of dataset is mnist because there aren't GTs available
-    if args.dataset == 'mnist':
-        return
+    if args.dataset != 'mnist':
 
-    # Compute area under the ROC score
-    auc = roc_auc_score(gt_mask_stack.flatten(), prediction_stack.flatten())
-    print(f"AUROC score: {auc}")
 
-    if plot_ROC:
-        tpr, tnr, _ =  roc_curve(gt_mask_stack.flatten(), prediction_stack.flatten())
-        plt.plot(tpr, tnr, label="ROC")
-        plt.xlabel("FPR")
-        plt.ylabel("TPR")
-        plt.legend()
-        plt.savefig("./test_results/auroc_" + str(args.target_layer)+ str(args.one_class)+ ".png")
+        # Compute area under the ROC score
+        auc = roc_auc_score(gt_mask_stack.flatten(), prediction_stack.flatten())
+        print(f"AUROC score: {auc}")
+
+        fpr, tpr, thresholds =  roc_curve(gt_mask_stack.flatten(), prediction_stack.flatten())
+        if plot_ROC:
+            plt.plot(tpr, fpr, label="ROC")
+            plt.xlabel("FPR")
+            plt.ylabel("TPR")
+            plt.legend()
+            plt.savefig("./test_results/auroc_" + str(args.target_layer)+ str(args.one_class)+ ".png")
+
+            # Compute IoU
+        if args.iou == True:
+            print(f"IoU score: {j_score}")
+            max_val = np.max(prediction_stack)
+
+            max_steps = 100
+            best_thres = 0
+            best_iou = 0
+            # Ge the IoU for 100 different thresholds
+            for i in range(1, max_steps):
+                thresh = i/max_steps*  max_val
+                prediction_bin_stack = prediction_stack > thresh
+                iou = jaccard_score(gt_mask_stack.flatten(), prediction_bin_stack.flatten())
+                if iou > best_iou:
+                    best_iou = iou
+                    best_thres = thresh
+            print("Best threshold;", best_thres)
+            print("Best IoU score:", best_iou)
+
     return
 
 
@@ -200,7 +220,8 @@ if __name__ == '__main__':
                         help='select a target layer for generating the attention map.')
     parser.add_argument('--no_auroc', default=True, action='store_false',
                         help='if this argument is passed, the auroc score will not be computed')
-
+    parser.add_argument('--iou', type=bool, default=False,
+                        help='when true the intersection over union is computed')
     args = parser.parse_args()
 
     # If no argument for result directory is specified, set it to data and model name
