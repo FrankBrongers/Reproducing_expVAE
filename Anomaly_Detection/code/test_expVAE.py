@@ -25,7 +25,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Initialize AUROC parameters
-test_steps = 400
 plot_ROC = True # Plot the ROC curve or not
 
 save_gcam_image = True
@@ -84,7 +83,7 @@ def main(args):
         model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
         imshape = [1, args.image_size, args.image_size]
-        model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 192, 144, 96], batch_norm=True).to(device)
+        model = ConvVAE_ped1(args.latent_size, args.image_size, batch_norm=True).to(device)
     elif args.model == 'resnet18_3':
         imshape = [3, 256, 256 ]
         model = ResNet18VAE_3(args.latent_size, x_dim = imshape[-1], nc = imshape[0]).to(device)
