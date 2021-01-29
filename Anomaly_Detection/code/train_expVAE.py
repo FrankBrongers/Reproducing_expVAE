@@ -146,7 +146,7 @@ def main(args):
     if args.model == 'vanilla_mnist':
         model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
-        model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 64, 128, 256], batch_norm=False).to(device)
+        model = ConvVAE_ped1(args.latent_size, args.image_size, batch_norm=False).to(device)
     elif args.model == 'resnet18_3':
         model = ResNet18VAE_3(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
 

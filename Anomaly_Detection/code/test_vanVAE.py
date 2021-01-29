@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 from models.vanilla_mnist import ConvVAE_mnist
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
-from models.resnet18_enc_only import ResNet18VAE_2
 
 import OneClassMnist
 import Ped1_loader
@@ -24,7 +23,6 @@ from torchvision.utils import save_image, make_grid
 import matplotlib.pyplot as plt
 
 # Initialize AUROC parameters
-test_steps = 10 # Choose a very high number to test the whole dataset
 plot_ROC = False # Plot the ROC curve or not
 save_gcam_image = True
 
@@ -67,17 +65,16 @@ def main(args):
         return
 
     # Select a model architecture
-    if args.model == 'vanilla':
+    if args.model == 'vanilla_mnist':
         model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
-        model = ConvVAE_ped1(args.latent_size).to(device)
+        model = ConvVAE_ped1(args.latent_size, args.image_size, batch_norm=True).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
-        # TODO Understand why to choose a specific target layer
     elif args.model == 'resnet18_2':
         model = ResNet18VAE_2(args.latent_size, x_dim=256, nc=3).to(device)
-        # TODO Understand why to choose a specific target layer
 
+    test_steps = len(test_dataset)
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
@@ -99,7 +96,6 @@ def main(args):
             x_latent_mean, _ = model.encode(x)
             x_reconstruction = model.decode(x_latent_mean)
             x_reconstruction = test_dataset.unnormalize(x_reconstruction).detach().cpu().numpy() * 255
-
         else:
             # use static reconstruction image
             x_reconstruction = np.asarray(Image.open('reconstructions/ucsd_ped1_1.png').convert('L'))
@@ -159,7 +155,7 @@ if __name__ == '__main__':
                         help='select one of the following models: vanilla_mnist, vanilla_ped1, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
-    parser.add_argument('--model_path', type=str, default='/media/bob/OS/Users/boble/Documents/AI - year 1/FACT-AI/vanilla_ped1_best_120_deeper.pth', metavar='DIR',
+    parser.add_argument('--model_path', type=str, default=None, metavar='DIR',
                         help='pretrained model directory')
 
     # Dataset parameters
