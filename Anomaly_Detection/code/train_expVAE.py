@@ -22,9 +22,6 @@ import MVTec_loader as mvtec
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-# from tensorboardX import SummaryWriter
-# Run the folloring command to acces tensorboard: tensorboard --logdir runs
-# from torchvision import transforms as T
 
 
 def loss_function(recon_x, x, mu, logvar, ):
@@ -146,7 +143,7 @@ def main(args):
         train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
     # Select a model architecture
-    if args.model == 'vanilla':
+    if args.model == 'vanilla_mnist':
         model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
         model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 64, 128, 256], batch_norm=False).to(device)
@@ -164,7 +161,6 @@ def main(args):
     # Initialize assesment variables
     start_epoch = 0
     best_train_loss = np.finfo('f').max
-    losses = []
 
     # Optionally resume from a checkpoint
     if args.resume:
@@ -179,7 +175,6 @@ def main(args):
         else:
             print('=> no checkpoint found at %s' % args.resume)
 
-
     # Training and testing
     for epoch in range(start_epoch, args.epochs):
         if args.vae_testsave == True:
@@ -191,20 +186,12 @@ def main(args):
                 gen_testim = model(testim)[0]
 
                 combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()], padding=100)
-                save_image(combi.cpu(), os.path.join(save_dir,"combi_"+ str(epoch) + '.png'))
+                save_image(combi.cpu(), os.path.join(save_dir, "combi_"+ str(epoch) + '.png'))
 
         train_loss = train(model, train_loader, optimizer, args)
 
-        # writer.add_scalar('Train Loss', train_loss, epoch)
-        # writer.add_scalar('Test Loss', test_loss, epoch)
-
         print('Epoch [%d/%d] loss: %.3f ' % (epoch + 1, args.epochs, train_loss))
         print(f"Lr: {optimizer.param_groups[0]['lr']}")
-
-        # save training loss plot
-        losses.append(train_loss)
-        plt.plot(losses)
-        plt.savefig(args.result_dir + "/loss_" + str(args.model)+ ".png")
 
         # Check if model is good enough for checkpoint to be created
         is_best = train_loss < best_train_loss
