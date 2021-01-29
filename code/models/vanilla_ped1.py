@@ -71,8 +71,8 @@ class ConvVAE_ped1(nn.Module):
         self.dataset_std = 0.20129592430286292
 
         self.mean_std_transform = transforms.Compose([
-                transforms.Normalize(mean=(self.dataset_mean,), std=(self.dataset_std,))
-                ])
+            transforms.Normalize(mean=(self.dataset_mean,), std=(self.dataset_std,))
+            ])
 
         sfm = get_smalles_feature_map_size(self.input_size)
 
@@ -111,7 +111,7 @@ class ConvVAE_ped1(nn.Module):
 
                 nn.ReLU(),
                 BatchNorm2d(self.config[3]),
-                nn.ConvTranspose2d(self.config[3], self.config[2], kernel_size=4, stride=2, padding=1),
+                nn.ConvTranspose2d(self.config[3], self.config[2], kernel_size=5, stride=2, padding=1),
 
                 nn.ReLU(),
                 BatchNorm2d(self.config[2]),
@@ -163,7 +163,6 @@ class ConvVAE_ped1(nn.Module):
                 nn.ConvTranspose2d(self.config[1], self.config[0], kernel_size=4, stride=2, padding=1),
                 nn.Sigmoid()
             )
-
 
 
     def encode(self, x):
