@@ -50,7 +50,7 @@ class Unflatten(nn.Module):
 
 class ConvVAE_ped1(nn.Module):
 
-    def __init__(self, latent_size, input_size, layer_config, batch_norm=True, ):
+    def __init__(self, latent_size, input_size, batch_norm=True, ):
         """
         Encoder and Decoder network
         Inputs:
@@ -64,7 +64,6 @@ class ConvVAE_ped1(nn.Module):
 
         self.latent_size = latent_size
         self.input_size = input_size
-        self.config = layer_config
         self.batch_norm = batch_norm
 
         self.dataset_mean = 0.3750352255196134
@@ -77,6 +76,8 @@ class ConvVAE_ped1(nn.Module):
         sfm = get_smalles_feature_map_size(self.input_size)
 
         if self.batch_norm:
+            self.config = [1,192,144,96]
+
             # Initialize the VAE without batch normalization
             self.encoder = nn.Sequential(
                 nn.Conv2d(self.config[0], self.config[1], kernel_size=4, stride=2, padding=1),
@@ -111,7 +112,7 @@ class ConvVAE_ped1(nn.Module):
 
                 nn.ReLU(),
                 BatchNorm2d(self.config[3]),
-                nn.ConvTranspose2d(self.config[3], self.config[2], kernel_size=5, stride=2, padding=1),
+                nn.ConvTranspose2d(self.config[3], self.config[2], kernel_size=4, stride=2, padding=1),
 
                 nn.ReLU(),
                 BatchNorm2d(self.config[2]),
@@ -123,6 +124,8 @@ class ConvVAE_ped1(nn.Module):
                 nn.Sigmoid()
             )
         else:
+            self.config = [1,64,128,256]
+
             # Initialize the VAE without batch normalization
             self.encoder = nn.Sequential(
                 nn.Conv2d(self.config[0], self.config[1], kernel_size=4, stride=2, padding=1),
