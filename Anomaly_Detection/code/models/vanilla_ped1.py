@@ -111,7 +111,7 @@ class ConvVAE_ped1(nn.Module):
 
                 nn.ReLU(),
                 BatchNorm2d(self.config[3]),
-                nn.ConvTranspose2d(self.config[3], self.config[2], kernel_size=4, stride=2, padding=1),
+                nn.ConvTranspose2d(self.config[3], self.config[2], kernel_size=5, stride=2, padding=1),
 
                 nn.ReLU(),
                 BatchNorm2d(self.config[2]),
