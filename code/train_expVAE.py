@@ -10,31 +10,24 @@ import os
 import shutil
 import numpy as np
 
-from models.vanilla import ConvVAE
+from models.vanilla_mnist import ConvVAE_mnist
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 from models.resnet18_2 import ResNet18VAE_2
 from models.resnet18_3 import ResNet18VAE_3
 
 
-
 import OneClassMnist
 import Ped1_loader
 import MVTec_loader as mvtec
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 # from tensorboardX import SummaryWriter
 # Run the folloring command to acces tensorboard: tensorboard --logdir runs
-from torchvision import transforms as T
+# from torchvision import transforms as T
 
-
-# def unnormalize(x):
-#     mean = np.array([0.4305, 0.3999, 0.3900])
-#     std = np.array([0.1822, 0.1733, 0.1624])
-#     inv_normalize = T.Normalize(mean = -mean/std, std = 1/std)
-#     unnorm = inv_normalize(x)
-#     return unnorm
 
 def loss_function(recon_x, x, mu, logvar, ):
     """
@@ -49,10 +42,6 @@ def loss_function(recon_x, x, mu, logvar, ):
     rc = recon_x.shape[1]
     # if rc == 1:
     if True:
-        # Normalize x
-        x = x - torch.min(x)
-        x = x / torch.max(x)
-
         rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
     else:
         rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
@@ -142,43 +131,37 @@ def main(args):
         args - Namespace object from the argument parser
     """
     print("Device is", device)
-    # writer = SummaryWriter()
-    print(" using torch version", torch.__version__)
+
     # Seed everything
     torch.manual_seed(args.seed)
 
     # Load dataset
     if args.dataset == 'mnist':
         # for generating images
-        imshape = [64, 1, 28, 28]
+        imshape = [64, 1, args.image_size, args.image_size]
         one_class = args.one_class # Choose the inlier digit to be 3
         train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
         test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
-        imshape = [64, 1, 100, 100]
-        train_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=True, resize=100)
-        test_dataset = Ped1_loader.UCSDAnomalyDataset('data/UCSD_Anomaly_Dataset.v1p2/UCSDped1/', train=False, resize=100)
+        imshape = [64, 1, args.image_size, args.image_size]
+        train_dataset = Ped1_loader.UCSDAnomalyDataset('./data/', train=True, resize=args.image_size)
+        test_dataset = Ped1_loader.UCSDAnomalyDataset('./data', train=False, resize=args.image_size)
     elif args.dataset == 'mvtec_ad':
         # for dataloader check: pin pin_memory, batch size 32 in original
         imshape = [64, 3, 256, 256 ]
         class_name = mvtec.CLASS_NAMES[args.one_class]   # nuts
         train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
-        test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
 
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if torch.cuda.is_available() else {}
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
-    # test_loader = torch.utils.data.DataLoader(
-    #     test_dataset,
-    #     batch_size=args.batch_size, shuffle=True, **kwargs)
-
     # Select a model architecture
     if args.model == 'vanilla':
-        model = ConvVAE(args.latent_size).to(device)
+        model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
-        model = ConvVAE_ped1(args.latent_size).to(device)
+        model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 64, 128, 256], batch_norm=False).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
     elif args.model == 'resnet18_2':
@@ -188,7 +171,7 @@ def main(args):
 
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 100], gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[], gamma=0.1)
 
     start_epoch = 0
     best_train_loss = np.finfo('f').max
@@ -217,7 +200,7 @@ def main(args):
                 testim =  next(iter(train_loader))[0][0][None,:].to(device)
                 gen_testim = model(testim)[0]
 
-                combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()],  padding=100)
+                combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()], padding=100)
                 save_image(combi.cpu(), os.path.join(save_dir,str(args.decoder) +"combi_"+ str(epoch) + '.png'))
 
         train_loss = train(model, train_loader, optimizer, args)
@@ -253,8 +236,7 @@ def main(args):
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
             save_image(sample.view(imshape), os.path.join(save_dir,str(args.decoder) +'sample_' + str(epoch) + '.png'))
-
-        # scheduler.step()
+        scheduler.step()
 
 if __name__ == '__main__':
 
@@ -270,7 +252,7 @@ if __name__ == '__main__':
                         help='path to latest checkpoint (default: None')
 
     # Training parameters
-    parser.add_argument('--batch_size', type=int, default=2, metavar='N',
+    parser.add_argument('--batch_size', type=int, default=32, metavar='N',
                         help='input batch size for training (default: 128)')
     parser.add_argument('--learning_rate', default=0.0001, type=float,
                         help='Learning rate to use')
@@ -283,9 +265,11 @@ if __name__ == '__main__':
 
     # Model parameters
     parser.add_argument('--model', type=str, default='vanilla_ped1',
-                        help='select one of the following models: vanilla, resnet18, vanilla_ped1')
+                        help='select one of the following models: vanilla_mnist, resnet18, vanilla_ped1')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
+    parser.add_argument('--image_size', type=int, default=100,
+                        help='Select an image size')
 
     # Dataset parameters
     parser.add_argument('--dataset', type=str, default='ucsd_ped1',
@@ -298,5 +282,9 @@ if __name__ == '__main__':
                         help='only for resnet VAE select one of following: resnet, vanilla')
 
     args = parser.parse_args()
+
+    # If no argument for result directory is specified, set it to data and model name
+    if args.result_dir is None:
+        args.result_dir = 'train_results/{}_{}'.format(args.dataset, args.model)
 
     main(args)

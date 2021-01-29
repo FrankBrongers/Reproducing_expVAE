@@ -7,7 +7,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from models.vanilla import ConvVAE
+from models.vanilla_mnist import ConvVAE_mnist
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 from models.resnet18_2 import ResNet18VAE_2
@@ -27,7 +27,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Initialize AUROC parameters
-test_steps = 100 # Choose a very high number to test the whole dataset
+test_steps = 400
 plot_ROC = True # Plot the ROC curve or not
 
 save_gcam_image = True
@@ -86,14 +86,13 @@ def main(args):
 
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
+        test_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
 
     # Select a model architecture
-    if args.model == 'vanilla':
-        model = ConvVAE(args.latent_size).to(device)
+    if args.model == 'vanilla_mnist':
+        model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
-        imshape = [1, 192, 144, 96]
-        model = ConvVAE_ped1(args.latent_size, args.image_size, imshape).to(device)
+        model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 192, 144, 96], batch_norm=True).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
         # TODO Understand why to choose a specific target layer
@@ -109,7 +108,6 @@ def main(args):
     model.load_state_dict(checkpoint['state_dict'])
     mu_avg, logvar_avg = (0, 1)
     gcam = GradCAM(model, target_layer=args.target_layer, device=device)
-    test_index = 0
 
     prediction_stack = np.zeros((test_steps, imshape[-1], imshape[-1]), dtype=np.float32)
     gt_mask_stack = np.zeros((test_steps, imshape[-1], imshape[-1]), dtype=np.uint8)
@@ -128,9 +126,6 @@ def main(args):
         gcam_map = gcam.generate()
         gcam_max = torch.max(gcam_map).item()
 
-        # Unnormalize for saving
-        # x = test_dataset.unnormalize(x)
-
         # If image has one channel, make it three channel(need for heatmap)
         if x.size(1) == 1:
             x = x.repeat(1, 3, 1, 1)
@@ -140,26 +135,31 @@ def main(args):
             x_arr = x[i].permute(1, 2, 0).cpu().numpy() * 255
             x_im = Image.fromarray(x_arr.astype(np.uint8))
 
+            # Get the gradcam for this image
+            prediction = gcam_map[i].squeeze().cpu().data.numpy()
+
+            # Add prediction and mask to the stacks
+            prediction_stack[batch_idx*args.batch_size + i] = prediction
+            gt_mask_stack[batch_idx*args.batch_size + i] = y[i]
+
             if save_gcam_image:
                 im_path = args.result_dir
                 if not os.path.exists(im_path):
                     os.mkdir(im_path)
                 x_im.save(os.path.join(im_path, "{}-{}-origin.png".format(batch_idx, i)))
                 file_path = os.path.join(im_path, "{}-{}-attmap.png".format(batch_idx, i))
+                _ = save_gradcam(x_arr, file_path, prediction, gcam_max = gcam_max)
 
-            # Get the gradcam for this image
-            prediction = gcam_map[i].squeeze().cpu().data.numpy()
-            save_gradcam(x_arr, file_path, prediction, gcam_max = gcam_max)
-
-            # Add prediction and mask to the stacks
-            prediction_stack[batch_idx*args.batch_size + i] = prediction
-            gt_mask_stack[batch_idx*args.batch_size + i] = y[i]
 
         # print("step_size test_steps", batch_idx, test_steps)
         # Stop parameter
         # if batch_idx * args.batch_size >= (test_steps - 1):
         #     print("Reached the maximum number of steps")
         #     break
+
+    # Stop of dataset is mnist because there aren't GTs available
+    if args.dataset == 'mnist':
+        return
 
     # Compute area under the ROC score
     auc = roc_auc_score(gt_mask_stack.flatten(), prediction_stack.flatten())
@@ -192,12 +192,12 @@ if __name__ == '__main__':
 
     # Model option
     parser.add_argument('--model', type=str, default='vanilla_ped1',
-                        help='select one of the following models: vanilla, vanilla_ped1, resnet18')
+                        help='select one of the following models: vanilla_mnist, vanilla_ped1, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
     parser.add_argument('--model_path', type=str, default='/media/bob/OS/Users/boble/Documents/AI - year 1/FACT-AI/vanilla_ped1_best_120_deeper.pth', metavar='DIR',
                         help='pretrained model directory')
-    parser.add_argument('--image_size', type=int, default=96,
+    parser.add_argument('--image_size', type=int, default=100,
                         help='Select an image size')
 
     # Dataset parameters
