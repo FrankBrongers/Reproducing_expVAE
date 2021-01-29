@@ -67,16 +67,13 @@ def main(args):
     # Load dataset
     if args.dataset == 'mnist':
         test_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=False, transform=transforms.ToTensor())
-        test_steps = len(test_dataset)
     elif args.dataset == 'ucsd_ped1':
-        # TODO: remove by boberino
-        test_steps = test_steps * args.batch_size
         test_dataset = Ped1_loader.UCSDAnomalyDataset('./data', train=False, resize=args.image_size)
     elif args.dataset == 'mvtec_ad':
         class_name = mvtec.CLASS_NAMES[args.one_class]
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False, root_path= args.data_path)
-        test_steps = len(test_dataset)
 
+    test_steps = len(test_dataset)
     kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if device == "cuda" else {}
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
@@ -92,7 +89,8 @@ def main(args):
         imshape = [3, 256, 256 ]
         model = ResNet18VAE_3(args.latent_size, x_dim = imshape[-1], nc = imshape[0]).to(device)
 
-    print("layer issss", args.target_layer)
+    print("Layer is:", args.target_layer)
+
     # Load model
     checkpoint = torch.load(args.model_path)
     model.load_state_dict(checkpoint['state_dict'])
@@ -141,11 +139,6 @@ def main(args):
                 save_gradcam(x_arr, file_path, prediction, gcam_max = gcam_max)
 
 
-        # print("step_size test_steps", batch_idx, test_steps)
-        # Stop parameter
-        # if batch_idx * args.batch_size >= (test_steps - 1):
-        #     print("Reached the maximum number of steps")
-        #     break
 
     # Stop of dataset is mnist because there aren't GTs available
     if args.dataset != 'mnist':

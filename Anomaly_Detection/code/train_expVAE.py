@@ -276,5 +276,8 @@ if __name__ == '__main__':
     # If no argument for result directory is specified, set it to data and model name
     if args.result_dir is None:
         args.result_dir = './train_results/{}_{}'.format(args.dataset, args.model)
+        save_dir = args.result_dir
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
 
     main(args)
