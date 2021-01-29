@@ -83,8 +83,8 @@ def main(args):
         imshape = [1, 28, 28]
         model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
-        imshape = [1, 100, 100]
-        model = ConvVAE_ped1(args.latent_size, imshape[-1], [1, 192, 144, 96], batch_norm=True).to(device)
+        imshape = [1, args.image_size, args.image_size]
+        model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 192, 144, 96], batch_norm=True).to(device)
     elif args.model == 'resnet18_3':
         imshape = [3, 256, 256 ]
         model = ResNet18VAE_3(args.latent_size, x_dim = imshape[-1], nc = imshape[0]).to(device)
@@ -200,7 +200,7 @@ if __name__ == '__main__':
                         help='latent vector size of encoder')
     parser.add_argument('--model_path', type=str, default=None, metavar='DIR',
                         help='pretrained model directory')
-    parser.add_argument('--image_size', type=int, default=100,
+    parser.add_argument('--image_size', type=int, default=96,
                         help='Select an image size')
     parser.add_argument('--data_path', type=str, default='./data', metavar='DIR',
                         help='directory for storing and finding the dataset')
