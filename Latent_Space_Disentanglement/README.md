@@ -3,7 +3,7 @@ Pytorch implementation of AD-FactorVAE proposed in Towards Visually Explaining V
 FactorVAE implementation based on https://github.com/1Konny/FactorVAE.
 <br>
 
-### 2D Shapes(dsprites) Dataset
+### dSprites Dataset
 ```
 sh scripts/prepare_data.sh dsprites
 ```
