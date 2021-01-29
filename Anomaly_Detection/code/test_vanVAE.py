@@ -68,7 +68,7 @@ def main(args):
     if args.model == 'vanilla_mnist':
         model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
-        model = ConvVAE_ped1(args.latent_size, args.image_size, batch_norm=True).to(device)
+        model = ConvVAE_ped1(args.latent_size, args.image_size, args.batch_norm).to(device)
     elif args.model == 'resnet18':
         model = ResNet18VAE(args.latent_size).to(device)
     elif args.model == 'resnet18_2':
@@ -157,6 +157,8 @@ if __name__ == '__main__':
                         help='latent vector size of encoder')
     parser.add_argument('--model_path', type=str, default=None, metavar='DIR',
                         help='pretrained model directory')
+    parser.add_argument('--batch_norm', type=bool, default=False, metavar='DIR',
+                        help='add batch norm?')
 
     # Dataset parameters
     parser.add_argument('--dataset', type=str, default='ucsd_ped1',
