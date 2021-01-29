@@ -8,7 +8,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from models.vanilla import ConvVAE
+from models.vanilla_mnist import ConvVAE_mnist
 from models.vanilla_ped1 import ConvVAE_ped1
 from models.resnet18 import ResNet18VAE
 from models.resnet18_enc_only import ResNet18VAE_2
@@ -24,9 +24,9 @@ from torchvision.utils import save_image, make_grid
 import matplotlib.pyplot as plt
 
 # Initialize AUROC parameters
-test_steps = 1801 # Choose a very high number to test the whole dataset
+test_steps = 10 # Choose a very high number to test the whole dataset
 plot_ROC = False # Plot the ROC curve or not
-save_gcam_image = False
+save_gcam_image = True
 
 def save_cam(image, filename, gcam):
     """
@@ -36,9 +36,13 @@ def save_cam(image, filename, gcam):
         filename - name of to be saved file
         gcam - generated attention map of image
     """
+    # Normalize
+    gcam = gcam - gcam.min()
+    gcam = gcam / gcam.max()
+
     # Save image
     h, w, d = image.shape
-    save_gcam = cv2.resize(gcam, (w, h))
+    save_gcam = cv2.resize(gcam * 255, (w, h))
     save_gcam = cv2.applyColorMap(np.uint8(save_gcam), cv2.COLORMAP_JET)
     save_gcam = np.asarray(save_gcam, dtype=np.float) + np.asarray(image, dtype=np.float)
     save_gcam = 255 * save_gcam / np.max(save_gcam) 
@@ -64,7 +68,7 @@ def main(args):
 
     # Select a model architecture
     if args.model == 'vanilla':
-        model = ConvVAE(args.latent_size).to(device)
+        model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
         model = ConvVAE_ped1(args.latent_size).to(device)
     elif args.model == 'resnet18':
@@ -107,20 +111,14 @@ def main(args):
 
         # Visualize and save distance maps
         for i in range(x.shape[0]):
-            # Load average VAE reconstruction
-            # vae_reconstruction = np.asarray(Image.open('reconstructions/ucsd_ped1_1.png').convert('L'))
-
-            # for every image in batch
-            input_image = x[i,0]
-
-            # Add to the stacks
+            # Add prediction and mask to the stacks
             prediction_stack[batch_idx*args.batch_size + i] = prediction[i, 0]
             gt_mask_stack[batch_idx*args.batch_size + i] = y[i]
 
             # Save heatmap
             if save_gcam_image:
                 file_path = os.path.join(args.result_dir, "{}-{}-attmap.png".format(batch_idx, i))
-                stacked_im = np.tile(np.expand_dims(input_image, axis=2), 1)
+                stacked_im = np.tile(np.expand_dims(x[i,0], axis=2), 1)
                 save_cam(stacked_im, file_path, prediction[i, 0])
 
         # Stop parameter
@@ -158,7 +156,7 @@ if __name__ == '__main__':
 
     # model option
     parser.add_argument('--model', type=str, default='vanilla_ped1',
-                        help='select one of the following models: vanilla, vanilla_ped1, resnet18')
+                        help='select one of the following models: vanilla_mnist, vanilla_ped1, resnet18')
     parser.add_argument('--latent_size', type=int, default=32, metavar='N',
                         help='latent vector size of encoder')
     parser.add_argument('--model_path', type=str, default='/media/bob/OS/Users/boble/Documents/AI - year 1/FACT-AI/vanilla_ped1_best_120_deeper.pth', metavar='DIR',
@@ -167,15 +165,17 @@ if __name__ == '__main__':
     # Dataset parameters
     parser.add_argument('--dataset', type=str, default='ucsd_ped1',
                         help='select one of the following datasets: mnist, ucsd_ped1, mvtec_ad')
-    parser.add_argument('--image_size', type=int, default=96,
+    parser.add_argument('--image_size', type=int, default=100,
                         help='Select an image size')
 
-    # AUROC parameters
-
     # Generation parameters
-    parser.add_argument('--reconstruction', type=bool, default=True,
+    parser.add_argument('--reconstruction', type=bool, default=False,
                         help='If True: use VAE reconstruction from input, else: use average reconstruction.')
 
     args = parser.parse_args()
+
+    # If no argument for result directory is specified, set it to data and model name
+    if args.result_dir is None:
+        args.result_dir = 'test_results/reconstrucion_{}_{}'.format(args.dataset, args.model)
 
     main(args)

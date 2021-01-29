@@ -2,7 +2,6 @@ from __future__ import print_function
 
 from collections import OrderedDict
 
-import cv2
 import numpy as np
 import torch
 import torch.nn as nn
@@ -58,7 +57,6 @@ class PropBase(object):
 
 class GradCAM(PropBase):
     # hook functions to compute gradients wrt intermediate results
-    # so dz/dL and dz/dL not dW/dL as usual
     def set_hook_func(self):
         def func_b(module, grad_in, grad_out):
             """
@@ -98,7 +96,7 @@ class GradCAM(PropBase):
 
         # Get height and width of attention maps
         self.map_size = self.grads.size()[2:]
-        self.weights = nn.AvgPool2d(self.map_size)(self.grads)
+        self.alpha = nn.AvgPool2d(self.map_size)(self.grads)
 
 
     def generate(self):
@@ -108,6 +106,7 @@ class GradCAM(PropBase):
         # Retrieve gradients of backward pass for target layer
         self.grads = self.get_conv_outputs(
             self.outputs_backward, self.target_layer)
+
         # compute weigths based on the gradient
         self.compute_gradient_weights()
 
@@ -117,23 +116,16 @@ class GradCAM(PropBase):
 
 
 
-        # Compute M_i (I think? Where is the ReLu?
-        # Why do they use cross corelation/convolution?)
 
-        self.alpha = self.weights.to(self.device)        # Leons attempts
-        gcam = self.activation * self.alpha
-        gcam = torch.mean(gcam, dim = 1)[:,None,:,:]
+        # compute attention map for each convolution
+        gcam = self.activation * self.alpha.to(self.device)
         gcam = torch.abs(gcam)
-        # gcam = F.relu(gcam)
 
-        # self.activation = self.activation[None, :, :, :, :]
-        # self.weights = self.weights[:, None, :, :, :]
-        # gcam = F.conv3d(input=self.activation,
-        #                 weight=self.weights.to(self.device), padding=0,
-        #                 groups=len(self.weights))
-        # gcam = gcam.squeeze(dim=0)
+        # average the attention
+        gcam = torch.mean(gcam, dim = 1)[:,None,:,:]
 
-        # upsamples through interpolation increases image size
+
+        # upsamples through interpolation to increase image size
         gcam = F.interpolate(gcam, (self.image_size, self.image_size),
                                 mode="bilinear", align_corners=True)
 

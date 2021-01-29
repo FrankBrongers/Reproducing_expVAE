@@ -12,10 +12,6 @@ import matplotlib.pyplot as plt
 
 from torchvision.utils import save_image
 
-
-import cv2
-
-
 URL = 'ftp://guest:GU.205dldo@ftp.softronics.ch/mvtec_anomaly_detection/mvtec_anomaly_detection.tar.xz'
 CLASS_NAMES = ['bottle', 'cable', 'capsule', 'carpet', 'grid',
                'hazelnut', 'leather', 'metal_nut', 'pill', 'screw',
@@ -28,6 +24,7 @@ class MVTecDataset(Dataset):
         assert class_name in CLASS_NAMES, 'class_name: {}, should be in {}'.format(class_name, CLASS_NAMES)
         self.root_path = root_path
         self.class_name = class_name
+        print("For class",class_name)
         self.is_train = is_train
         self.resize = resize
         self.cropsize = cropsize

@@ -35,7 +35,7 @@ class Unflatten(nn.Module):
         return input.view(input.size(0), self.channel, self.height, self.width)
 
 
-class ConvVAE(nn.Module):
+class ConvVAE_mnist(nn.Module):
 
     def __init__(self, latent_size):
         """
@@ -43,7 +43,7 @@ class ConvVAE(nn.Module):
         Inputs:
             latent_size - Dimensionality of the latent vector
         """
-        super(ConvVAE, self).__init__()
+        super(ConvVAE_mnist, self).__init__()
 
         self.latent_size = latent_size
 
