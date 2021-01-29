@@ -9,8 +9,6 @@ import matplotlib.pyplot as plt
 
 from models.vanilla_mnist import ConvVAE_mnist
 from models.vanilla_ped1 import ConvVAE_ped1
-from models.resnet18 import ResNet18VAE
-from models.resnet18_2 import ResNet18VAE_2
 from models.resnet18_3 import ResNet18VAE_3
 
 
@@ -19,7 +17,7 @@ import Ped1_loader
 import MVTec_loader as mvtec
 
 from gradcam import GradCAM
-# import cv2
+import cv2
 from PIL import Image
 from torchvision.utils import save_image, make_grid
 import matplotlib
@@ -31,7 +29,6 @@ test_steps = 400
 plot_ROC = True # Plot the ROC curve or not
 
 save_gcam_image = True
-# norm_gcam_image = True
 
 def save_gradcam(image, filename, gcam, gcam_max = 1):
     """
@@ -42,24 +39,20 @@ def save_gradcam(image, filename, gcam, gcam_max = 1):
         gcam - generated attention map of image
     """
     # Normalize
-    # if norm_gcam_image:
     gcam = gcam - np.min(gcam)
     gcam = gcam / np.max(gcam)
-    # else:
-    #     # Divide by a hand-chosen maximum value
-    #     gcam = gcam / gcam_max
-    #     gcam = np.clip(gcam, 0.0, 1.0)
+
 
     # Save image
-    # if save_gcam_image:
-    #     h, w, d = image.shape
-    #
-    #     save_gcam = cv2.resize(gcam, (w, h))
-    #     save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
-    #     save_gcam = np.asarray(save_gcam, dtype=np.float) + np.asarray(image, dtype=np.float)
-    #     save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
-    #     save_gcam = np.uint8(save_gcam)
-    #     cv2.imwrite(filename, save_gcam) # Uncomment to save the images
+    if save_gcam_image:
+        h, w, d = image.shape
+
+        save_gcam = cv2.resize(gcam, (w, h))
+        save_gcam = cv2.applyColorMap(np.uint8(255 * save_gcam), cv2.COLORMAP_JET)
+        save_gcam = np.asarray(save_gcam, dtype=np.float) + np.asarray(image, dtype=np.float)
+        save_gcam = 255 * save_gcam / np.max(save_gcam) # With norm
+        save_gcam = np.uint8(save_gcam)
+        cv2.imwrite(filename, save_gcam) # Uncomment to save the images
     return
 
 def main(args):
@@ -79,7 +72,6 @@ def main(args):
         test_steps = test_steps * args.batch_size
         test_dataset = Ped1_loader.UCSDAnomalyDataset('./data', train=False, resize=args.image_size)
     elif args.dataset == 'mvtec_ad':
-        # for dataloader check: pin pin_memory, batch size 32 in original
         class_name = mvtec.CLASS_NAMES[args.one_class]
         test_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=False, grayscale=False)
         test_steps = len(test_dataset)
@@ -90,18 +82,15 @@ def main(args):
 
     # Select a model architecture
     if args.model == 'vanilla_mnist':
+        imshape = [1, 28, 28]
         model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
-        model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 192, 144, 96], batch_norm=True).to(device)
-    elif args.model == 'resnet18':
-        model = ResNet18VAE(args.latent_size).to(device)
-        # TODO Understand why to choose a specific target layer
-    elif args.model == 'resnet18_2':
-        model = ResNet18VAE_2(args.latent_size, x_dim=256, nc=3).to(device)
-        # TODO Understand why to choose a specific target layer
+        imshape = [1, 100, 100]
+        model = ConvVAE_ped1(args.latent_size, imshape[-1], [1, 192, 144, 96], batch_norm=True).to(device)
     elif args.model == 'resnet18_3':
-        imshape = [64, 3, 256, 256 ]
-        model = ResNet18VAE_3(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
+        imshape = [3, 256, 256 ]
+        model = ResNet18VAE_3(args.latent_size, x_dim = imshape[-1], nc = imshape[0]).to(device)
+
     print("layer issss", args.target_layer)
     # Load model
     checkpoint = torch.load(args.model_path)
@@ -148,7 +137,7 @@ def main(args):
                     os.mkdir(im_path)
                 x_im.save(os.path.join(im_path, "{}-{}-origin.png".format(batch_idx, i)))
                 file_path = os.path.join(im_path, "{}-{}-attmap.png".format(batch_idx, i))
-                _ = save_gradcam(x_arr, file_path, prediction, gcam_max = gcam_max)
+                save_gradcam(x_arr, file_path, prediction, gcam_max = gcam_max)
 
 
         # print("step_size test_steps", batch_idx, test_steps)
@@ -209,8 +198,6 @@ if __name__ == '__main__':
     # AUROC parameters
     parser.add_argument('--target_layer', type=str, default='encoder.8',
                         help='select a target layer for generating the attention map.')
-    parser.add_argument('--decoder', type=str, default='vanilla',
-                        help='only for resnet VAE select one of following: resnet, vanilla')
     parser.add_argument('--no_auroc', default=True, action='store_false',
                         help='if this argument is passed, the auroc score will not be computed')
 

@@ -30,11 +30,7 @@ class BasicBlockEnc(nn.Module):
 
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
-        # if layer ==4 and stride ==1:
-        #     #last convolutional layer
-        #     self.conv2 = nn.Sequential()
-        #     self.bn2 = nn.Sequential()
-        # else:
+
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
 
@@ -79,12 +75,9 @@ class BasicBlockDec_transposed(nn.Module):
             )
 
     def forward(self, x):
-        # print("Michael jackson", self.stride)
         out = torch.relu(self.bn1(self.conv1(x)))
-        # print("after first conv", out.size())
         out = self.bn2(self.conv2(out))
         out_temp = self.shortcut(x)
-        # print("out, shortcut", out.size(), out_temp.size())
         out += out_temp
         out = torch.relu(out)
         return out
@@ -105,9 +98,6 @@ class ResNet18Enc(nn.Module):
         self.layer3 = self._make_layer(BasicBlockEnc, 256, num_Blocks[2], stride=2)
         self.layer4 = self._make_layer(BasicBlockEnc, 512, num_Blocks[3], stride=2, layer = 4)
 
-        # self.linear1 = nn.Linear(32768, 1024)
-        # self.linear2 = nn.Linear(1024, 2 * z_dim)
-        # self.linear1 = nn.Linear(512, 512)
         self.linear2 = nn.Linear(512, 2 * z_dim)
     def _make_layer(self, BasicBlockEnc, planes, num_Blocks, stride, layer = 1):
         strides = [stride] + [1]*(num_Blocks-1)
@@ -120,30 +110,18 @@ class ResNet18Enc(nn.Module):
     def forward(self, x):
 
         x = self.conv1(x)
-        # print("enc: siz x1 is",x.size())
         x = self.bn1(x)
         x = torch.relu(x)
-        # print("enc: siz x2 is",x.size())
         x = self.layer1(x)
-        # print("enc: siz x3 is",x.size())
         x = self.layer2(x)
-        # print("enc: siz x4 is",x.size())
         x = self.layer3(x)
-        # print("enc: siz x5 is",x.size())
         x = self.layer4(x)
-        # print("enc: siz x6 is",x.size())
         x = F.adaptive_avg_pool2d(x, 1)
-        # print("enc: siz x7 is",x.size())
         x = x.view(x.size(0), -1)
-        # print("enc: siz x8 is",x.size())
-        # x = self.linear1(x)
-        # print("enc: siz x9a is",x.size())
         x = self.linear2(x)
-        # print("enc: siz x9b is",x.size())
 
         mu = x[:, :self.z_dim]
         logvar = x[:, self.z_dim:]
-        # print("mu, logvar",mu.size(), logvar.size())
         return mu, logvar
 
 

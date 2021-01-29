@@ -12,8 +12,6 @@ import numpy as np
 
 from models.vanilla_mnist import ConvVAE_mnist
 from models.vanilla_ped1 import ConvVAE_ped1
-from models.resnet18 import ResNet18VAE
-from models.resnet18_2 import ResNet18VAE_2
 from models.resnet18_3 import ResNet18VAE_3
 
 
@@ -39,12 +37,8 @@ def loss_function(recon_x, x, mu, logvar, ):
         log_var - Log standard deviation of the posterior distributions.
     """
     B = recon_x.shape[0]
-    rc = recon_x.shape[1]
-    # if rc == 1:
-    if True:
-        rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
-    else:
-        rec_loss = F.mse_loss(x, recon_x, reduction = 'sum').div(B)
+
+    rec_loss = F.binary_cross_entropy(recon_x.view(B, -1), x.view(B, -1), reduction='sum').div(B)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()).div(B)
 
     return rec_loss + KLD
@@ -97,7 +91,6 @@ def test(model, test_loader, args):
         for batch_idx, (data, _) in enumerate(test_loader):
             data = data.to(device)
             recon_batch, mu, logvar = model(data)
-
             test_loss += loss_function(recon_batch, data, mu, logvar).item()
 
     test_loss /= len(test_loader.dataset)/args.batch_size
@@ -118,7 +111,7 @@ def save_checkpoint(state, is_best, outdir, args):
             checkpoint_file = os.path.join(outdir, f"{state['model']}_mvtecClass_"+str(args.one_class) +"_checkpoint.pth")
             best_file = os.path.join(outdir, f"{state['model']}_mvtecClass_"+str(args.one_class)+"_best.pth")
     else:
-        checkpoint_file = os.path.join(outdir, f"{state['model']}_"+str(args.decoder) +"_checkpoint.pth")
+        checkpoint_file = os.path.join(outdir, f"{state['model']}_checkpoint.pth")
         best_file = os.path.join(outdir, f"{state['model']}_best.pth")
     torch.save(state, checkpoint_file)
     if is_best:
@@ -137,19 +130,14 @@ def main(args):
 
     # Load dataset
     if args.dataset == 'mnist':
-        # for generating images
-        imshape = [64, 1, args.image_size, args.image_size]
-        one_class = args.one_class # Choose the inlier digit to be 3
-        train_dataset = OneClassMnist.OneMNIST('./data', one_class, train=True, download=True, transform=transforms.ToTensor())
-        test_dataset = OneClassMnist.OneMNIST('./data', one_class, train=False, transform=transforms.ToTensor())
+        imshape = [64, 1, 28, 28]
+        train_dataset = OneClassMnist.OneMNIST('./data', args.one_class, train=True, download=True, transform=transforms.ToTensor())
     elif args.dataset == 'ucsd_ped1':
-        imshape = [64, 1, args.image_size, args.image_size]
-        train_dataset = Ped1_loader.UCSDAnomalyDataset('./data/', train=True, resize=args.image_size)
-        test_dataset = Ped1_loader.UCSDAnomalyDataset('./data', train=False, resize=args.image_size)
+        imshape = [64, 1, 100, 100]
+        train_dataset = Ped1_loader.UCSDAnomalyDataset('./data/', train=True, resize=imshape[-1])
     elif args.dataset == 'mvtec_ad':
-        # for dataloader check: pin pin_memory, batch size 32 in original
         imshape = [64, 3, 256, 256 ]
-        class_name = mvtec.CLASS_NAMES[args.one_class]   # nuts
+        class_name = mvtec.CLASS_NAMES[args.one_class]
         train_dataset = mvtec.MVTecDataset(class_name=class_name, is_train=True, grayscale=False)
 
 
@@ -162,20 +150,22 @@ def main(args):
         model = ConvVAE_mnist(args.latent_size).to(device)
     elif args.model == 'vanilla_ped1':
         model = ConvVAE_ped1(args.latent_size, args.image_size, [1, 64, 128, 256], batch_norm=False).to(device)
-    elif args.model == 'resnet18':
-        model = ResNet18VAE(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
-    elif args.model == 'resnet18_2':
-        model = ResNet18VAE_2(args.latent_size, x_dim = imshape[-1], nc = imshape[1], decoder=args.decoder).to(device)
     elif args.model == 'resnet18_3':
         model = ResNet18VAE_3(args.latent_size, x_dim = imshape[-1], nc = imshape[1]).to(device)
 
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[], gamma=0.1)
 
+    # process optional milestones parameter
+    milestones = args.scheduler
+    if not isinstance(milestones, list) : milestones = [milestones]
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=0.1)
+
+    # Initialize assesment variables
     start_epoch = 0
     best_train_loss = np.finfo('f').max
     losses = []
+
     # Optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -201,10 +191,9 @@ def main(args):
                 gen_testim = model(testim)[0]
 
                 combi = make_grid([testim[0].cpu(), gen_testim[0].cpu()], padding=100)
-                save_image(combi.cpu(), os.path.join(save_dir,str(args.decoder) +"combi_"+ str(epoch) + '.png'))
+                save_image(combi.cpu(), os.path.join(save_dir,"combi_"+ str(epoch) + '.png'))
 
         train_loss = train(model, train_loader, optimizer, args)
-        # test_loss = test(model, test_loader,args)
 
         # writer.add_scalar('Train Loss', train_loss, epoch)
         # writer.add_scalar('Test Loss', test_loss, epoch)
@@ -212,10 +201,10 @@ def main(args):
         print('Epoch [%d/%d] loss: %.3f ' % (epoch + 1, args.epochs, train_loss))
         print(f"Lr: {optimizer.param_groups[0]['lr']}")
 
-        # save trainloss plot
+        # save training loss plot
         losses.append(train_loss)
         plt.plot(losses)
-        plt.savefig("./train_results/loss_" + str(args.decoder)+ ".png")
+        plt.savefig("./train_results/loss_" + str(args.model)+ ".png")
 
         # Check if model is good enough for checkpoint to be created
         is_best = train_loss < best_train_loss
@@ -235,7 +224,7 @@ def main(args):
             save_dir = os.path.join('./',args.result_dir)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            save_image(sample.view(imshape), os.path.join(save_dir,str(args.decoder) +'sample_' + str(epoch) + '.png'))
+            save_image(sample.view(imshape), os.path.join(save_dir,str(args.model) +'sample_' + str(epoch) + '.png'))
         scheduler.step()
 
 if __name__ == '__main__':
@@ -278,9 +267,8 @@ if __name__ == '__main__':
                         help='inlier digit for one-class VAE training')
     parser.add_argument('--vae_testsave', type=bool, default=False,
                         help='save input output image of VAE during training')
-    parser.add_argument('--decoder', type=str, default='',
-                        help='only for resnet VAE select one of following: resnet, vanilla')
-
+    parser.add_argument('--scheduler', type=int, nargs="+", default=-1,
+                        help='steps for the learning scheduler')
     args = parser.parse_args()
 
     # If no argument for result directory is specified, set it to data and model name
