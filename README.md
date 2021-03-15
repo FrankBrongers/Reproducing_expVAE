@@ -22,10 +22,3 @@ conda env create -f environment.yml
 
 ## Running codes
 Please use the corresponding notebook file to run all desired experiments. See ```Anomaly_Detection/``` for the implementation of the anomaly detection and ```Latent_Space_Disentanglement/``` for the implementation of the latent space disentanglement, and a more detailed description.
-
-##
-Code by:
-* Frank Brongers
-* Bob Leijnse
-* Leon Eshuijs
-* Vivien van Veldhuizen
